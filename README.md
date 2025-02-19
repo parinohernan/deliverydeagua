@@ -1,6 +1,6 @@
-# OSVIBot - Bot de Telegram para Gestión de Pedidos
+# DeliveryDeAgua_BOT - Bot de Telegram para Gestión de Pedidos
 
-OSVIBot es un bot de Telegram diseñado para ayudar en la gestión de pedidos, clientes y cobros. Este bot permite a los usuarios realizar diversas operaciones como crear clientes, cargar pedidos, listar pedidos, generar resúmenes y registrar cobros.
+DeliveryDeAgua_BOT es un bot de Telegram diseñado para ayudar en la gestión de pedidos, clientes y cobros. Este bot permite a los usuarios realizar diversas operaciones como crear clientes, cargar pedidos, listar pedidos, generar resúmenes y registrar cobros.
 
 ## Características
 
@@ -20,8 +20,8 @@ OSVIBot es un bot de Telegram diseñado para ayudar en la gestión de pedidos, c
 1. Clona el repositorio:
 
    ```bash
-   git clone https://github.com/tu_usuario/osvibot.git
-   cd osvibot/telegram-bot
+   git clone https://github.com/tu_usuario/deliverydeagua.git
+   cd DeliveryDeAgua_BOT/telegram-bot
    ```
 
 2. Instala las dependencias:
