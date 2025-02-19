@@ -15,7 +15,45 @@ OSVIBot es un bot de Telegram diseñado para ayudar en la gestión de pedidos, c
 - MySQL
 - Una cuenta de bot de Telegram y su token
 
-## USO
+## Instalación
+
+1. Clona el repositorio:
+
+   ```bash
+   git clone https://github.com/tu_usuario/osvibot.git
+   cd osvibot/telegram-bot
+   ```
+
+2. Instala las dependencias:
+
+   ```bash
+   npm install
+   ```
+
+3. Configura la base de datos:
+
+   - Asegúrate de tener una base de datos MySQL configurada.
+   - Encontraras la estructura de la base de datos en el archivo `database/database.sql`.
+   - Crea las tablas necesarias para `clientes`, `pedidos`, y `vendedores`.
+
+4. Configura las variables de entorno:
+
+   - Crea un archivo `.env` en la raíz del proyecto con el siguiente contenido:
+     ```plaintext
+     DB_USER=tu_usuario
+     DB_HOST=tu_host
+     DB_NAME=tu_base_de_datos
+     DB_PASSWORD=tu_contraseña
+     TELEGRAM_TOKEN=tu_token_de_telegram
+     ```
+
+5. Inicia el bot:
+
+   ```bash
+   npm start
+   ```
+
+## Testeo
 
 para probar el bot, puedes buscar en telegram a @deliverydeagua_bot y empezar a usarlo.
 al ser MULTIEMPRESA, cualquier usuario nuevo administrara la empresa de TESTING.
