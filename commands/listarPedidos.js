@@ -118,8 +118,12 @@ const mostrarOpcionesPago = async (bot, chatId, pedidoId, pedidoMessageId) => {
   }
 };
 
-const actualizarPedidoYSaldo = async (pedidoId, tipoPagoId, aplicaSaldo) => {
-  console.log("Actualizando pedido y saldo...");
+const actualizarStockPedidoYSaldo = async (
+  pedidoId,
+  tipoPagoId,
+  aplicaSaldo
+) => {
+  console.log("Actualizando stock pedido y saldo...");
   return new Promise((resolve, reject) => {
     connection.beginTransaction(async (err) => {
       if (err) {
@@ -164,6 +168,40 @@ const actualizarPedidoYSaldo = async (pedidoId, tipoPagoId, aplicaSaldo) => {
             }
           );
         });
+
+        // Obtenemos los productos del pedido
+        const getProductosQuery = `
+          SELECT codigoProducto, cantidad
+          FROM PedidosItems
+          WHERE codigoPedido = ?
+        `;
+
+        const productos = await new Promise((resolve, reject) => {
+          connection.query(getProductosQuery, [pedidoId], (err, results) => {
+            if (err) reject(err);
+            else resolve(results);
+          });
+        });
+
+        // Actualizamos el stock de cada producto
+        const updateStockQuery = `
+          UPDATE Productos
+          SET stock = stock - ?
+          WHERE codigo = ?
+        `;
+
+        for (const producto of productos) {
+          await new Promise((resolve, reject) => {
+            connection.query(
+              updateStockQuery,
+              [producto.cantidad, producto.codigoProducto],
+              (err) => {
+                if (err) reject(err);
+                else resolve();
+              }
+            );
+          });
+        }
 
         // Si aplica saldo, actualizamos el saldo del cliente
         if (aplicaSaldo === 1) {
@@ -254,8 +292,12 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
     }
 
     try {
-      console.log("Iniciando actualización de pedido y saldo...");
-      await actualizarPedidoYSaldo(pedidoId, tipoPagoId, parseInt(aplicaSaldo));
+      console.log("Iniciando actualización stock de pedido y saldo...");
+      await actualizarStockPedidoYSaldo(
+        pedidoId,
+        tipoPagoId,
+        parseInt(aplicaSaldo)
+      );
       console.log("Actualización completada");
 
       // Respondemos al callback
