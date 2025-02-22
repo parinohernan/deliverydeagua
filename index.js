@@ -3,24 +3,11 @@ import config from "./config.js";
 import TelegramBot from "node-telegram-bot-api";
 import connectToDatabase from "./database/connection.js";
 import { handleCommand } from "./handlers/commandHandler.js";
-import { handlePedidoCallback as handleListarPedidosCallback } from "./commands/listarPedidos.js";
-import { handlePedidoCallback as handleCargarPedidoCallback } from "./commands/cargarPedido.js";
 import { connection } from "./database/connection.js";
-import { handleResumenCallback } from "./commands/resumenPedidos.js";
 import { getConversationState } from "./handlers/conversationHandler.js";
-import {
-  listarStock,
-  ingresarStock,
-  salidaStock,
-  ingresoStock,
-  handleStockCallback,
-  procesarCantidadStock,
-  operacionesPendientes,
-} from "./commands/stock.js";
-
+import { handleCallback } from "./handlers/callbackHandler.js";
 // Configuración del bot
 const bot = new TelegramBot(config.telegram.token, { polling: true });
-
 // Función para verificar si un usuario está autorizado
 const isUserAuthorized = async (chatId, username) => {
   console.log(
@@ -34,10 +21,8 @@ const isUserAuthorized = async (chatId, username) => {
       FROM Vendedores 
       WHERE telegramId = '${username}' OR telegramId = '${chatId}'
     `;
-
     connection.query(query, "", (err, results) => {
       // console.log("Consulta SQL:", query, results);
-
       if (err) {
         resolve({ authorized: false });
         return;
@@ -57,7 +42,6 @@ const isUserAuthorized = async (chatId, username) => {
       }
       // Guardar información del vendedor para uso posterior
       const vendedor = results[0];
-      console.log("Vendedor encontrado:", vendedor.nombre, vendedor.apellido);
       resolve({
         authorized: true,
         vendedor: {
@@ -70,12 +54,10 @@ const isUserAuthorized = async (chatId, username) => {
     });
   });
 };
-
 // Manejador principal de mensajes
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
   const username = msg.from.username;
-
   // Verificar autorización o la conexión a la base de datos
   const auth = await isUserAuthorized(chatId, username);
   if (!auth.authorized) {
@@ -86,56 +68,21 @@ bot.on("message", async (msg) => {
     connectToDatabase();
     return;
   }
-
   // Agregar información del vendedor al mensaje
   msg.vendedor = auth.vendedor;
-
-  // Verificar si hay una operación de stock pendiente
-  if (operacionesPendientes[chatId]) {
-    return procesarCantidadStock(bot, msg);
-  }
-
   // Manejar comandos
   handleCommand(bot, msg);
-
   // Manejar el estado de la conversación
   const state = getConversationState(chatId);
-  console.log("Estado de la conversación:", chatId, state);
 });
-
-// Agregar manejador de callbacks
+// Simplificar el manejador de callbacks
 bot.on("callback_query", async (callbackQuery) => {
-  const action = callbackQuery.data.split("_")[0];
-  console.log("Callback recibido en index.js:", {
-    action,
-    data: callbackQuery.data,
-  });
-
-  // Agregar información del vendedor al callback
   const auth = await isUserAuthorized(
     callbackQuery.message.chat.id,
     callbackQuery.from.username
   );
 
-  callbackQuery.message.vendedor = auth.vendedor;
-
-  // Responder al callback para quitar el "loading" del botón
-  bot.answerCallbackQuery(callbackQuery.id);
-
-  if (["entregar", "detalles", "pago"].includes(action)) {
-    handleListarPedidosCallback(bot, callbackQuery);
-  } else if (["selectCliente", "selectProducto", "pedido"].includes(action)) {
-    handleCargarPedidoCallback(bot, callbackQuery);
-  } else if (action === "resumen") {
-    handleResumenCallback(bot, callbackQuery);
-  } else if (action === "ver") {
-    listarStock(bot, callbackQuery);
-  } else if (action === "ingresar") {
-    ingresarStock(bot, callbackQuery);
-  } else if (["ingresoStock", "salidaStock"].includes(action)) {
-    handleStockCallback(bot, callbackQuery);
-  }
+  handleCallback(bot, callbackQuery, auth);
 });
-
 // Iniciar la conexión a la base de datos
 connectToDatabase();
