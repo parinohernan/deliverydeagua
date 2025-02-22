@@ -9,10 +9,6 @@ import {
 
 export const handleCallback = async (bot, callbackQuery, auth) => {
   const action = callbackQuery.data.split("_")[0];
-  console.log("Callback recibido:", {
-    action,
-    data: callbackQuery.data,
-  });
 
   // Agregar información del vendedor al callback
   callbackQuery.message.vendedor = auth.vendedor;

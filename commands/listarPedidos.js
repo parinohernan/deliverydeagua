@@ -60,7 +60,8 @@ export const listarPedidos = async (bot, msg) => {
   });
 };
 
-const obtenerTiposPago = () => {
+const obtenerTiposPago = (empresa) => {
+  console.log("2Obteniendo tipos de pago...", empresa);
   return new Promise((resolve, reject) => {
     const query = `
       SELECT 
@@ -68,28 +69,32 @@ const obtenerTiposPago = () => {
         pago, 
         CAST(aplicaSaldo AS UNSIGNED) as aplicaSaldo
       FROM tiposDePago
+      WHERE codigoEmpresa = '${empresa}'
       ORDER BY id
     `;
 
-    console.log("Ejecutando query de tipos de pago:", query);
     connection.query(query, (err, results) => {
       if (err) {
         console.error("Error en obtenerTiposPago:", err);
         reject(err);
         return;
       }
+      console.log("query:", query);
       console.log("Resultados de tipos de pago:", results);
       resolve(results);
     });
   });
 };
 
-const mostrarOpcionesPago = async (bot, chatId, pedidoId, pedidoMessageId) => {
+const mostrarOpcionesPago = async (
+  bot,
+  chatId,
+  pedidoId,
+  pedidoMessageId,
+  empresa
+) => {
   try {
-    console.log("Obteniendo tipos de pago...");
-    const tiposPago = await obtenerTiposPago();
-    console.log("Tipos de pago obtenidos:", tiposPago);
-
+    const tiposPago = await obtenerTiposPago(empresa);
     const options = {
       reply_markup: {
         inline_keyboard: tiposPago.map((tipo) => {
@@ -254,7 +259,6 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
     `;
 
     const empresa = callbackQuery.message.vendedor.codigoEmpresa;
-
     connection.query(checkQuery, [pedidoId, empresa], async (err, results) => {
       if (err) {
         console.error("Error al verificar estado del pedido:", err);
@@ -269,7 +273,8 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
 
       // Guardamos el messageId del pedido original
       const pedidoMessageId = callbackQuery.message.message_id;
-      mostrarOpcionesPago(bot, chatId, pedidoId, pedidoMessageId);
+      console.log("Empresa:", empresa);
+      mostrarOpcionesPago(bot, chatId, pedidoId, pedidoMessageId, empresa);
 
       // Respondemos al callback para quitar el "loading" del botón
       await bot.answerCallbackQuery(callbackQuery.id);
