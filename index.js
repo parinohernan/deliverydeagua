@@ -8,6 +8,15 @@ import { handlePedidoCallback as handleCargarPedidoCallback } from "./commands/c
 import { connection } from "./database/connection.js";
 import { handleResumenCallback } from "./commands/resumenPedidos.js";
 import { getConversationState } from "./handlers/conversationHandler.js";
+import {
+  listarStock,
+  ingresarStock,
+  salidaStock,
+  ingresoStock,
+  handleStockCallback,
+  procesarCantidadStock,
+  operacionesPendientes,
+} from "./commands/stock.js";
 
 // Configuración del bot
 const bot = new TelegramBot(config.telegram.token, { polling: true });
@@ -80,14 +89,18 @@ bot.on("message", async (msg) => {
 
   // Agregar información del vendedor al mensaje
   msg.vendedor = auth.vendedor;
-  // console.log("Vendedor:", msg.vendedor);
+
+  // Verificar si hay una operación de stock pendiente
+  if (operacionesPendientes[chatId]) {
+    return procesarCantidadStock(bot, msg);
+  }
 
   // Manejar comandos
   handleCommand(bot, msg);
 
   // Manejar el estado de la conversación
   const state = getConversationState(chatId);
-  console.log("Estado de la conversación:", state);
+  console.log("Estado de la conversación:", chatId, state);
 });
 
 // Agregar manejador de callbacks
@@ -115,6 +128,12 @@ bot.on("callback_query", async (callbackQuery) => {
     handleCargarPedidoCallback(bot, callbackQuery);
   } else if (action === "resumen") {
     handleResumenCallback(bot, callbackQuery);
+  } else if (action === "ver") {
+    listarStock(bot, callbackQuery);
+  } else if (action === "ingresar") {
+    ingresarStock(bot, callbackQuery);
+  } else if (["ingresoStock", "salidaStock"].includes(action)) {
+    handleStockCallback(bot, callbackQuery);
   }
 });
 

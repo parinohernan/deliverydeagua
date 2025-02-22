@@ -16,6 +16,7 @@ import { resumenPedidos } from "../commands/resumenPedidos.js";
 import { handleResumenEntreFechasResponse } from "../commands/resumenPedidos.js";
 import { getEmpresa } from "../database/empresaQueries.js";
 import { cobros, handleCobrosResponse } from "../commands/cobros.js";
+import { stock } from "../commands/stock.js";
 
 const mostrarMenuPrincipal = async (bot, chatId, vendedor) => {
   console.log("estoy mostrando menu principal");
@@ -58,7 +59,8 @@ const mostrarMenuPrincipal = async (bot, chatId, vendedor) => {
         keyboard: [
           ["📝 Cargar Pedido", "📋 Ver Pedidos"],
           ["🆕 Nuevo Cliente", "📊 Resumen"],
-          ["💰 Cobros", "❌ Cancelar"],
+          ["💰 Cobros", "📦 Stock"],
+          ["❌ Cancelar"],
         ],
         resize_keyboard: true,
       },
@@ -200,7 +202,7 @@ export const handleCommand = (bot, msg) => {
     const comando = text.split(" ")[0].replace("/", "");
     if (mostrarAyuda(bot, chatId, comando)) return;
   }
-  console.log("estoy manejando comandos");
+  console.log("estoy manejando comandos", text);
   // Manejar botones del teclado personalizado
   const comandosPorBoton = {
     "📝 Cargar Pedido": "/cargarpedido",
@@ -208,6 +210,7 @@ export const handleCommand = (bot, msg) => {
     "💰 Cobros": "/cobros",
     "🆕 Nuevo Cliente": "/crearcliente",
     "📊 Resumen": "/resumen",
+    "📦 Stock": "/stock",
     "❌ Cancelar": "/cancelar",
   };
 
@@ -257,7 +260,12 @@ export const handleCommand = (bot, msg) => {
     case "/resumen":
       resumenPedidos(bot, msg);
       break;
-
+    case "/informes":
+      informes(bot, msg);
+      break;
+    case "/stock":
+      stock(bot, msg);
+      break;
     // case "/query":
     //   // Tu lógica existente para queries
     //   break;
