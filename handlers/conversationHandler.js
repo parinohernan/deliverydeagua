@@ -1,5 +1,5 @@
 // Almacén de estados de conversación
-const conversations = new Map();
+export const conversations = new Map();
 
 export const startConversation = (chatId, command) => {
   conversations.set(chatId, {
@@ -10,6 +10,7 @@ export const startConversation = (chatId, command) => {
 };
 
 export const getConversationState = (chatId) => {
+  console.log("conversations.get(chatId):", conversations.get(chatId));
   return conversations.get(chatId);
 };
 

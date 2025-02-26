@@ -10,6 +10,14 @@ import {
   endConversation,
 } from "../handlers/conversationHandler.js";
 
+const CANCELAR_COMMAND = "/cancelar";
+
+const handleCancelacion = (bot, chatId) => {
+  bot.sendMessage(chatId, "❌ Operación de cobro cancelada.");
+  endConversation(chatId);
+  return true;
+};
+
 export const cobros = async (bot, msg) => {
   const chatId = msg.chat.id;
 
@@ -27,7 +35,7 @@ export const cobros = async (bot, msg) => {
       `🔍 
 Escribe * para buscar todos los clientes con saldo pendiente.
 Escribe parte del nombre para buscar un cliente en particular.
-Para cancelar en cualquier momento, escribe /cancelar`
+Para cancelar, escribe /cancelar`
     );
   } catch (error) {
     bot.sendMessage(chatId, `Error: ${error.message}`);
@@ -37,17 +45,14 @@ Para cancelar en cualquier momento, escribe /cancelar`
 export const handleCobrosResponse = async (bot, msg) => {
   const chatId = msg.chat.id;
   const state = getConversationState(chatId);
+  const texto = msg.text;
 
   // Si no hay estado de conversación, retornar false
   if (!state || state.command !== "cobros") return false;
 
-  const texto = msg.text;
-
-  // Manejar cancelación
-  if (texto.toLowerCase() === "/cancelar") {
-    bot.sendMessage(chatId, "❌ Cobro cancelado.");
-    endConversation(chatId);
-    return true;
+  // Verificar cancelación en cualquier paso
+  if (texto.toLowerCase() === CANCELAR_COMMAND) {
+    return handleCancelacion(bot, chatId);
   }
 
   try {
@@ -60,9 +65,8 @@ export const handleCobrosResponse = async (bot, msg) => {
         if (clientes.length === 0) {
           bot.sendMessage(
             chatId,
-            "❌ No se encontraron clientes con ese nombre."
+            "❌ No se encontraron clientes con ese nombre.\nIntenta nuevamente o escribe /cancelar para cancelar."
           );
-          endConversation(chatId);
           return true;
         }
 
@@ -71,7 +75,8 @@ export const handleCobrosResponse = async (bot, msg) => {
           mensaje += `*${cliente.codigo}* - ${cliente.nombre} ${cliente.apellido}\n`;
           mensaje += `💰 Saldo pendiente: $${cliente.saldo || 0}\n\n`;
         });
-        mensaje += "\nIngresa el código del cliente seleccionado:";
+        mensaje +=
+          "\nIngresa el código del cliente seleccionado o /cancelar para cancelar:";
 
         state.data.clientes = clientes;
         nextStep(chatId);
@@ -85,7 +90,7 @@ export const handleCobrosResponse = async (bot, msg) => {
         if (!clienteSeleccionado) {
           bot.sendMessage(
             chatId,
-            "❌ Código de cliente inválido. Intenta nuevamente."
+            "❌ Código de cliente inválido.\nIntenta nuevamente o escribe /cancelar para cancelar."
           );
           return true;
         }
@@ -111,9 +116,8 @@ export const handleCobrosResponse = async (bot, msg) => {
           mensajePedidos += `*#${pedido.codigo}* - Fecha: ${fechaFormateada}\n`;
           mensajePedidos += `💰 Monto: $${pedido.total}\n\n`;
         });
-        // mensajePedidos +=
-        //   "Ingresa los números de pedido a pagar separados por coma (ej: 1,2,3):";
-        mensajePedidos += "Ingresa números de pedido a pagar:";
+        mensajePedidos +=
+          "Ingresa números de pedido a pagar o /cancelar para cancelar:";
 
         state.data.pedidos = pedidosImpagos;
         nextStep(chatId);
@@ -122,13 +126,15 @@ export const handleCobrosResponse = async (bot, msg) => {
 
       case 2: // Procesamiento de pagos
         const pedidosSeleccionados = texto.split(",").map((num) => num.trim());
-        // nsole.log("pedidosSeleccionados", pedidosSeleccionados);
         const pedidosValidos = state.data.pedidos.filter((p) =>
           pedidosSeleccionados.includes(p.codigo.toString())
         );
 
         if (pedidosValidos.length === 0) {
-          bot.sendMessage(chatId, "❌ No se seleccionaron pedidos válidos.");
+          bot.sendMessage(
+            chatId,
+            "❌ No se seleccionaron pedidos válidos.\nIntenta nuevamente o escribe /cancelar para cancelar."
+          );
           return true;
         }
 
@@ -154,9 +160,8 @@ export const handleCobrosResponse = async (bot, msg) => {
     console.error("Error en cobros:", error);
     bot.sendMessage(
       chatId,
-      "❌ Ocurrió un error al procesar el cobro. Por favor, intenta nuevamente."
+      "❌ Ocurrió un error al procesar el cobro.\nPuedes intentar nuevamente o escribir /cancelar para cancelar."
     );
-    endConversation(chatId);
     return true;
   }
 

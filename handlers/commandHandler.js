@@ -24,6 +24,7 @@ import {
 } from "../commands/stock.js";
 import { handleHelp } from "./helpHandler.js";
 import { KEYBOARD_BUTTONS } from "../constants/messages.js";
+import { conversations } from "./conversationHandler.js";
 
 const mostrarMenuPrincipal = async (bot, chatId, vendedor) => {
   console.log("Mostrando menú principal");
@@ -67,6 +68,25 @@ const handleActiveConversation = (bot, msg) => {
   );
 };
 
+const handleCancelacion = (bot, chatId) => {
+  console.log("handleCancelacion: 72", chatId);
+  // Limpiar operaciones pendientes de stock
+  if (operacionesPendientes[chatId]) {
+    delete operacionesPendientes[chatId];
+  }
+
+  // Limpiar conversaciones activas
+  if (conversations.has(chatId)) {
+    conversations.delete(chatId);
+  }
+
+  bot.sendMessage(
+    chatId,
+    "❌ Operación cancelada. Volviendo al menú principal..."
+  );
+  return true;
+};
+
 const commandHandlers = {
   [COMMANDS.START]: (bot, msg) =>
     mostrarMenuPrincipal(bot, msg.chat.id, msg.vendedor),
@@ -79,6 +99,10 @@ const commandHandlers = {
   [COMMANDS.LISTAR_PEDIDOS]: (bot, msg) => listarPedidos(bot, msg),
   [COMMANDS.RESUMEN]: (bot, msg) => resumenPedidos(bot, msg),
   [COMMANDS.STOCK]: (bot, msg) => stock(bot, msg),
+  [COMMANDS.CANCELAR]: (bot, msg) => {
+    handleCancelacion(bot, msg.chat.id);
+    mostrarMenuPrincipal(bot, msg.chat.id, msg.vendedor);
+  },
 };
 
 // Agregar este mapeo de botones a comandos
@@ -89,6 +113,7 @@ const BUTTON_TO_COMMAND = {
   [KEYBOARD_BUTTONS.NUEVO_CLIENTE]: COMMANDS.CREAR_CLIENTE,
   [KEYBOARD_BUTTONS.RESUMEN]: COMMANDS.RESUMEN,
   [KEYBOARD_BUTTONS.STOCK]: COMMANDS.STOCK,
+  [KEYBOARD_BUTTONS.CANCELAR]: COMMANDS.CANCELAR,
 };
 
 export const handleCommand = (bot, msg) => {
@@ -104,9 +129,19 @@ export const handleCommand = (bot, msg) => {
   // Verificar si es una solicitud de ayuda
   if (text?.includes("ayuda")) {
     const comando = text.split(" ")[0].replace("/", "");
-    if (handleHelp(bot, chatId, comando)) return;
+    if (handleHelp(bot, chatId, comando)) return true;
   }
 
+  // Manejar cancelación primero
+  if (
+    text === "/cancelar" ||
+    text === COMMANDS.CANCELAR ||
+    text === KEYBOARD_BUTTONS.CANCELAR
+  ) {
+    handleCancelacion(bot, chatId);
+    mostrarMenuPrincipal(bot, chatId, msg.vendedor);
+    return true;
+  }
   // Si hay una operación de stock pendiente, procesarla primero
   if (operacionesPendientes[chatId]) {
     console.log("Procesando operación de stock pendiente");
@@ -115,22 +150,31 @@ export const handleCommand = (bot, msg) => {
 
   // Obtener el comando correspondiente al botón o usar el texto directamente
   const command = BUTTON_TO_COMMAND[text] || text;
-  console.log("Comando a ejecutar:", command);
+  console.log("Comando a ejecutar:", command, text);
 
   // Si es un comando conocido, ejecutarlo directamente
-  const handler = commandHandlers[command];
+  let handler = commandHandlers[command];
   if (handler) {
     console.log("Ejecutando handler para:", command);
-    return handler(bot, msg);
+    handler(bot, msg);
+    return true;
   }
+  // else {
+  //   console.log("No se encontró handler para:", command);
+  //   handler = commandHandlers["/menu"];
+  //   handler(bot, msg);
+
+  // }
 
   // Si no es un comando, manejar como posible conversación activa
   if (handleActiveConversation(bot, msg)) {
     console.log("En conversación activa");
-    return;
+    return true;
   }
-
-  // Si no es ni comando ni conversación activa, mostrar menú principal
-  console.log("Mostrando menú principal por defecto");
-  mostrarMenuPrincipal(bot, chatId, msg.vendedor);
+  // else {
+  //   console.log("No se encontró handler para:", command);
+  //   handler = commandHandlers["/menu"];
+  //   handler(bot, msg);
+  //   return true;
+  // }
 };

@@ -6,6 +6,14 @@ import {
   endConversation,
 } from "../handlers/conversationHandler.js";
 
+const formatoFecha = (fecha) => {
+  return fecha.toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+};
+
 export const resumenPedidos = async (bot, msg) => {
   const chatId = msg.chat.id;
   const empresa = msg.vendedor.codigoEmpresa;
@@ -67,7 +75,7 @@ const obtenerResumen = async (
       GROUP BY p.codigo, p.descripcion
       ORDER BY cantidadTotal DESC
     `;
-
+    // console.log("query:", query);
     connection.query(query, [empresa], (err, results) => {
       if (err) {
         reject(err);
@@ -79,7 +87,10 @@ const obtenerResumen = async (
         return;
       }
 
-      const total = results.reduce((sum, item) => sum + item.importeTotal, 0);
+      const total = results.reduce(
+        (sum, item) => sum + Number(item.importeTotal),
+        0
+      );
       const cantidadPedidos = results[0].cantidadPedidos;
 
       resolve({ items: results, total, cantidadPedidos });
@@ -135,12 +146,36 @@ export const handleResumenCallback = async (bot, callbackQuery) => {
       titulo = "Entregados Hoy";
       break;
     case "pedidosSemana":
-      filtroFecha = "AND YEARWEEK(ped.FechaPedido) = YEARWEEK(CURDATE())";
-      titulo = "Pedidos de esta Semana";
+      const hoy = new Date();
+      const primerDiaSemana = new Date(hoy);
+      primerDiaSemana.setDate(hoy.getDate() - hoy.getDay() + 1);
+
+      const ultimoDiaSemana = new Date(hoy);
+      ultimoDiaSemana.setDate(hoy.getDate() + (7 - hoy.getDay()));
+
+      filtroFecha = `AND ped.FechaPedido BETWEEN DATE_SUB(CURDATE(), INTERVAL DAYOFWEEK(CURDATE()) - 1 DAY) 
+        AND DATE_ADD(CURDATE(), INTERVAL 7 - DAYOFWEEK(CURDATE()) DAY)`;
+      titulo = `Pedidos de esta Semana (${formatoFecha(
+        primerDiaSemana
+      )} al ${formatoFecha(ultimoDiaSemana)})`;
       break;
     case "entregadosSemana":
-      filtroFecha = "AND YEARWEEK(ped.FechaEntrega) = YEARWEEK(CURDATE())";
-      titulo = "Entregados esta Semana";
+      const hoyEntrega = new Date();
+      const primerDiaSemanaEntrega = new Date(hoyEntrega);
+      primerDiaSemanaEntrega.setDate(
+        hoyEntrega.getDate() - hoyEntrega.getDay() + 1
+      );
+
+      const ultimoDiaSemanaEntrega = new Date(hoyEntrega);
+      ultimoDiaSemanaEntrega.setDate(
+        hoyEntrega.getDate() + (7 - hoyEntrega.getDay())
+      );
+
+      filtroFecha = `AND ped.FechaEntrega BETWEEN DATE_SUB(CURDATE(), INTERVAL DAYOFWEEK(CURDATE()) - 1 DAY) 
+        AND DATE_ADD(CURDATE(), INTERVAL 7 - DAYOFWEEK(CURDATE()) DAY)`;
+      titulo = `Entregados de esta Semana (${formatoFecha(
+        primerDiaSemanaEntrega
+      )} al ${formatoFecha(ultimoDiaSemanaEntrega)})`;
       break;
     case "pedidosMes":
       filtroFecha =
@@ -162,7 +197,6 @@ export const handleResumenCallback = async (bot, callbackQuery) => {
       empresa,
       soloEntregados
     );
-
     if (resumen.items.length === 0) {
       bot.sendMessage(
         chatId,
@@ -176,7 +210,7 @@ export const handleResumenCallback = async (bot, callbackQuery) => {
         (item) =>
           `📦 ${item.descripcion}
    Cantidad: ${item.cantidadTotal}
-   Total: $${item.precioTotal}`
+   Total: $${item.importeTotal}`
       )
       .join("\n\n");
 
@@ -268,7 +302,6 @@ export const handleResumenEntreFechasResponse = (bot, msg) => {
    Total: $${item.precioTotal}`
               )
               .join("\n\n");
-
             const titulo = state.data.soloEntregados
               ? "Pedidos Entregados"
               : "Todos los Pedidos";

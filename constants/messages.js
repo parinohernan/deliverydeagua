@@ -32,7 +32,12 @@ export const KEYBOARD_LAYOUT = {
 };
 
 export const getMainMenuMessage = (empresa, vendedor) => `
+[​](${"https://res.cloudinary.com/dmwrruots/image/upload/v1740529354/ljj6ymehzb5bgugk3bcr.png"})
 🏢 *${empresa.razonSocial}* 
 🏪 *Sistema de Gestión de Pedidos* 
 👤 ${vendedor.nombre} ${vendedor.apellido}
+Usa los botones para navegar por el bot 
+o escribe el comando que necesitas.
+
+*Para cancelar en cualquier momento, escribe /cancelar*
 `;

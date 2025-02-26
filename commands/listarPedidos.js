@@ -109,16 +109,12 @@ const mostrarOpcionesPago = async (
         }),
       },
     };
-
-    console.log("Opciones generadas:", JSON.stringify(options, null, 2));
-
     bot.sendMessage(
       chatId,
       `Selecciona el tipo de pago para el pedido #${pedidoId}:`,
       options
     );
   } catch (error) {
-    console.error("Error en mostrarOpcionesPago:", error);
     bot.sendMessage(chatId, `Error al obtener tipos de pago: ${error.message}`);
   }
 };
