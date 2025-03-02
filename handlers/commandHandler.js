@@ -19,8 +19,10 @@ import { handleResumenEntreFechasResponse } from "../commands/resumenPedidos.js"
 import { cobros, handleCobrosResponse } from "../commands/cobros.js";
 import {
   stock,
-  procesarCantidadStock,
+  handleStockCallback,
   operacionesPendientes,
+  procesarCantidadStock,
+  procesarNuevoPrecio,
 } from "../commands/stock.js";
 import { handleHelp } from "./helpHandler.js";
 import { KEYBOARD_BUTTONS } from "../constants/messages.js";
@@ -45,8 +47,26 @@ const mostrarMenuPrincipal = async (bot, chatId, vendedor) => {
 const handleActiveConversation = (bot, msg) => {
   // Verificar si hay una operación de stock pendiente
   if (operacionesPendientes[msg.chat.id]) {
-    console.log("Procesando cantidad de stock...");
-    procesarCantidadStock(bot, msg);
+    let operacion = operacionesPendientes[msg.chat.id].operacion;
+    // handleStockCallback(bot, msg);
+    if (
+      operacionesPendientes[msg.chat.id].operacion == "actualizarPrecioXCodigo"
+    ) {
+      procesarNuevoPrecio(
+        bot,
+        msg,
+        msg.text,
+        operacionesPendientes[msg.chat.id].codigo
+      );
+    } else {
+      procesarCantidadStock(
+        bot,
+        msg,
+        msg.text,
+        operacionesPendientes[msg.chat.id].codigo,
+        operacion === "ingresoStock" ? "+" : "-"
+      );
+    }
     return true;
   }
 
@@ -69,7 +89,6 @@ const handleActiveConversation = (bot, msg) => {
 };
 
 const handleCancelacion = (bot, chatId) => {
-  console.log("handleCancelacion: 72", chatId);
   // Limpiar operaciones pendientes de stock
   if (operacionesPendientes[chatId]) {
     delete operacionesPendientes[chatId];
@@ -119,13 +138,6 @@ const BUTTON_TO_COMMAND = {
 export const handleCommand = (bot, msg) => {
   const text = msg.text;
   const chatId = msg.chat.id;
-
-  console.log("Manejando comando:", text);
-  console.log(
-    "Estado de operaciones pendientes:",
-    operacionesPendientes[chatId]
-  );
-
   // Verificar si es una solicitud de ayuda
   if (text?.includes("ayuda")) {
     const comando = text.split(" ")[0].replace("/", "");
@@ -144,37 +156,21 @@ export const handleCommand = (bot, msg) => {
   }
   // Si hay una operación de stock pendiente, procesarla primero
   if (operacionesPendientes[chatId]) {
-    console.log("Procesando operación de stock pendiente");
     return handleActiveConversation(bot, msg);
   }
 
   // Obtener el comando correspondiente al botón o usar el texto directamente
   const command = BUTTON_TO_COMMAND[text] || text;
-  console.log("Comando a ejecutar:", command, text);
 
   // Si es un comando conocido, ejecutarlo directamente
   let handler = commandHandlers[command];
   if (handler) {
-    console.log("Ejecutando handler para:", command);
     handler(bot, msg);
     return true;
   }
-  // else {
-  //   console.log("No se encontró handler para:", command);
-  //   handler = commandHandlers["/menu"];
-  //   handler(bot, msg);
-
-  // }
 
   // Si no es un comando, manejar como posible conversación activa
   if (handleActiveConversation(bot, msg)) {
-    console.log("En conversación activa");
     return true;
   }
-  // else {
-  //   console.log("No se encontró handler para:", command);
-  //   handler = commandHandlers["/menu"];
-  //   handler(bot, msg);
-  //   return true;
-  // }
 };

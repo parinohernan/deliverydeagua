@@ -5,11 +5,12 @@ import {
   listarStock,
   ingresarStock,
   handleStockCallback,
+  actualizarPrecio,
+  // actualizarPrecioXCodigo,
 } from "../commands/stock.js";
 
 export const handleCallback = async (bot, callbackQuery, auth) => {
   const action = callbackQuery.data.split("_")[0];
-
   // Agregar información del vendedor al callback
   callbackQuery.message.vendedor = auth.vendedor;
 
@@ -29,6 +30,8 @@ export const handleCallback = async (bot, callbackQuery, auth) => {
     ingresar: () => ingresarStock(bot, callbackQuery),
     ingresoStock: () => handleStockCallback(bot, callbackQuery),
     salidaStock: () => handleStockCallback(bot, callbackQuery),
+    actualizarprecio: () => actualizarPrecio(bot, callbackQuery),
+    actualizarPrecioXCodigo: () => handleStockCallback(bot, callbackQuery),
   };
 
   // Ejecutar el manejador correspondiente

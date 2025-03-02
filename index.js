@@ -9,6 +9,8 @@ import {
   endConversation,
 } from "./handlers/conversationHandler.js";
 import { handleCallback } from "./handlers/callbackHandler.js";
+// import { operacionesPendientes } from "./handlers/conversationHandler.js";
+// import { procesarEntrada } from "./commands/stock.js";
 // Configuración del bot
 const bot = new TelegramBot(config.telegram.token, { polling: true });
 // Función para verificar si un usuario está autorizado
@@ -76,6 +78,12 @@ bot.on("message", async (msg) => {
 
   // Agregar información del vendedor al mensaje
   msg.vendedor = auth.vendedor;
+
+  // // Verificar si hay una operación pendiente
+  // if (operacionesPendientes[chatId]) {
+  //   procesarEntrada(bot, msg);
+  //   return;
+  // }
 
   // Verificar si es el comando cancelar
   if (text === "/cancelar") {

@@ -4,7 +4,7 @@ export const KEYBOARD_BUTTONS = {
   COBROS: "💰 Cobros",
   NUEVO_CLIENTE: "🆕 Nuevo Cliente",
   RESUMEN: "📊 Resumen",
-  STOCK: "📦 Stock",
+  STOCK: "📦 Productos",
   CANCELAR: "❌ Cancelar",
 };
 
