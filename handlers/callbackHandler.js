@@ -14,6 +14,9 @@ export const handleCallback = async (bot, callbackQuery, auth) => {
   // Agregar información del vendedor al callback
   callbackQuery.message.vendedor = auth.vendedor;
 
+  console.log("handleCallback - action:", action);
+  console.log("handleCallback - callbackQuery.data:", callbackQuery.data);
+
   // Responder al callback para quitar el "loading" del botón
   bot.answerCallbackQuery(callbackQuery.id);
 
@@ -32,6 +35,12 @@ export const handleCallback = async (bot, callbackQuery, auth) => {
     salidaStock: () => handleStockCallback(bot, callbackQuery),
     actualizarprecio: () => actualizarPrecio(bot, callbackQuery),
     actualizarPrecioXCodigo: () => handleStockCallback(bot, callbackQuery),
+    tipoResumen: () => handleResumenCallback(bot, callbackQuery),
+    tipoInforme: () => handleResumenCallback(bot, callbackQuery),
+    anular: () => handleListarPedidosCallback(bot, callbackQuery),
+    confirmarAnular: () => handleListarPedidosCallback(bot, callbackQuery),
+    cancelarAnular: () => handleListarPedidosCallback(bot, callbackQuery),
+    calendar: () => handleResumenCallback(bot, callbackQuery),
   };
 
   // Ejecutar el manejador correspondiente
@@ -40,5 +49,10 @@ export const handleCallback = async (bot, callbackQuery, auth) => {
     await handler();
   } else {
     console.log("Acción no manejada:", action);
+    // Imprimir más información sobre el objeto callbackQuery para depuración
+    console.log(
+      "Objeto callbackQuery:",
+      JSON.stringify(callbackQuery, null, 2)
+    );
   }
 };

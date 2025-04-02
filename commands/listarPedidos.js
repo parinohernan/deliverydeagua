@@ -15,8 +15,10 @@ export const listarPedidos = async (bot, msg) => {
     JOIN Clientes c ON p.codigoCliente = c.codigo
     WHERE p.FechaEntrega IS NULL 
     AND p.codigoEmpresa = '${empresa}'
+    AND p.Estado IS NULL
     ORDER BY p.FechaPedido DESC
   `;
+  console.log("query:", query);
 
   connection.query(query, (err, results) => {
     if (err) {
@@ -49,6 +51,12 @@ export const listarPedidos = async (bot, msg) => {
               {
                 text: "📋 Ver Detalles",
                 callback_data: `detalles_${pedido.codigo}`,
+              },
+            ],
+            [
+              {
+                text: "❌ Anular Pedido",
+                callback_data: `anular_${pedido.codigo}`,
               },
             ],
           ],
@@ -395,5 +403,154 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
         `Detalles del Pedido #${params[0]}:\n\n${detalles}`
       );
     });
+  } else if (action === "anular") {
+    const pedidoId = params[0];
+
+    // Validar si el pedido ya está entregado o anulado
+    const checkQuery = `
+      SELECT FechaEntrega, Estado
+      FROM Pedidos 
+      WHERE codigo = ? AND codigoEmpresa = ?
+    `;
+
+    const empresa = callbackQuery.message.vendedor.codigoEmpresa;
+
+    connection.query(checkQuery, [pedidoId, empresa], async (err, results) => {
+      if (err) {
+        console.error("Error al verificar estado del pedido:", err);
+        bot.sendMessage(chatId, "Error al verificar el estado del pedido.");
+        return;
+      }
+
+      if (results.length === 0) {
+        bot.sendMessage(chatId, "❌ Este pedido no existe.");
+        return;
+      }
+
+      if (results[0].FechaEntrega !== null) {
+        bot.sendMessage(
+          chatId,
+          "❌ Este pedido ya ha sido entregado y no puede anularse."
+        );
+        return;
+      }
+
+      if (results[0].Estado === "ANULADO") {
+        bot.sendMessage(chatId, "❌ Este pedido ya ha sido anulado.");
+        return;
+      }
+
+      // Mostrar mensaje de confirmación
+      const options = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "✅ Sí, anular pedido",
+                callback_data: `confirmarAnular_${pedidoId}`,
+              },
+              {
+                text: "❌ No, cancelar",
+                callback_data: `cancelarAnular_${pedidoId}`,
+              },
+            ],
+          ],
+        },
+      };
+
+      bot.sendMessage(
+        chatId,
+        `¿Estás seguro de que deseas anular el pedido #${pedidoId}? Esta acción no se puede deshacer.`,
+        options
+      );
+
+      await bot.answerCallbackQuery(callbackQuery.id);
+    });
+  } else if (action === "confirmarAnular") {
+    const pedidoId = params[0];
+
+    // Anular el pedido
+    const updateQuery = `
+      UPDATE Pedidos 
+      SET Estado = 'ANULADO'
+      WHERE codigo = ?
+    `;
+
+    connection.query(updateQuery, [pedidoId], async (err) => {
+      if (err) {
+        console.error("Error al anular pedido:", err);
+        bot.sendMessage(chatId, `Error al anular el pedido: ${err.message}`);
+        return;
+      }
+
+      // Respondemos al callback
+      await bot.answerCallbackQuery(callbackQuery.id, {
+        text: "✅ Pedido anulado correctamente",
+        show_alert: true,
+      });
+
+      // Buscamos y actualizamos el mensaje original del pedido
+      const query = `
+        SELECT 
+          p.codigo,
+          p.FechaPedido,
+          c.nombre,
+          c.apellido,
+          c.direccion,
+          (SELECT SUM(precioTotal) FROM PedidosItems WHERE codigoPedido = p.codigo) as total
+        FROM Pedidos p
+        JOIN Clientes c ON p.codigoCliente = c.codigo
+        WHERE p.codigo = ?
+      `;
+
+      connection.query(query, [pedidoId], async (err, results) => {
+        if (err || results.length === 0) {
+          console.error("Error en query de actualización:", err);
+          bot.sendMessage(chatId, "Error al actualizar el mensaje del pedido");
+          return;
+        }
+
+        const pedido = results[0];
+        const mensajeActualizado = `
+🔖 Pedido #${pedido.codigo}
+📅 Fecha: ${new Date(pedido.FechaPedido).toLocaleString()}
+👤 Cliente: ${pedido.nombre} ${pedido.apellido}
+📍 Dirección: ${pedido.direccion}
+💰 Total: $${pedido.total}
+❌ ANULADO
+`;
+
+        try {
+          // Eliminar mensaje de confirmación
+          await bot.deleteMessage(chatId, callbackQuery.message.message_id);
+
+          // Actualizar mensaje original del pedido
+          await bot.editMessageText(mensajeActualizado, {
+            chat_id: chatId,
+            message_id: callbackQuery.message.message_id - 1,
+            parse_mode: "Markdown",
+          });
+        } catch (error) {
+          console.error("Error al manipular mensajes:", error);
+          // Si hay error al editar, enviamos un nuevo mensaje
+          bot.sendMessage(chatId, mensajeActualizado, {
+            parse_mode: "Markdown",
+          });
+        }
+      });
+    });
+  } else if (action === "cancelarAnular") {
+    const pedidoId = params[0];
+
+    // Simplemente eliminamos el mensaje de confirmación
+    try {
+      await bot.deleteMessage(chatId, callbackQuery.message.message_id);
+      await bot.answerCallbackQuery(callbackQuery.id, {
+        text: "Operación cancelada",
+        show_alert: true,
+      });
+    } catch (error) {
+      console.error("Error al cancelar anulación:", error);
+    }
   }
 };
