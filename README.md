@@ -20,7 +20,7 @@ DeliveryDeAgua_BOT es un bot de Telegram diseñado para ayudar en la gestión de
 1. Clona el repositorio:
 
    ```bash
-   git clone https://github.com/tu_usuario/deliverydeagua.git
+   git clone https://github.com/parinohernan/deliverydeagua.git
    cd DeliveryDeAgua_BOT/telegram-bot
    ```
 
