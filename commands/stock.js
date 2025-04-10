@@ -35,7 +35,7 @@ export const ingresarStock = async (bot, msg) => {
   const chatId = msg.message.chat.id;
   const empresa = msg.message.vendedor.codigoEmpresa;
 
-  const query = `SELECT codigo, descripcion, stock FROM Productos WHERE codigoEmpresa = ?`;
+  const query = `SELECT codigo, descripcion, stock FROM productos WHERE codigoEmpresa = ?`;
   connection.query(query, [empresa], (err, results) => {
     if (err) {
       console.error("Error al obtener el stock:", err);
@@ -70,7 +70,7 @@ export const ingresarStock = async (bot, msg) => {
 
 export const listarStock = (bot, callback) => {
   const empresa = callback.message.vendedor.codigoEmpresa;
-  const query = `SELECT codigo, descripcion, stock FROM Productos WHERE codigoEmpresa = ?`;
+  const query = `SELECT codigo, descripcion, stock FROM productos WHERE codigoEmpresa = ?`;
   const chatId = callback.message.chat.id;
   connection.query(query, [empresa], (err, results) => {
     if (err) {
@@ -122,7 +122,7 @@ export const actualizarPrecio = async (bot, callbackQuery) => {
   const chatId = callbackQuery.message.chat.id;
   const empresa = callbackQuery.message.vendedor.codigoEmpresa;
 
-  const query = `SELECT codigo, descripcion, precio FROM Productos WHERE codigoEmpresa = ?`;
+  const query = `SELECT codigo, descripcion, precio FROM productos WHERE codigoEmpresa = ?`;
   connection.query(query, [empresa], (err, results) => {
     if (err) {
       console.error("Error al obtener los productos:", err);
@@ -230,7 +230,7 @@ export const procesarNuevoPrecio = async (bot, msg, nuevoPrecio, codigo) => {
   const chatId = msg.chat.id;
 
   const query = `
-    UPDATE Productos 
+    UPDATE productos 
     SET precio = ? 
     WHERE codigo = ? AND codigoEmpresa = ?
   `;
@@ -265,7 +265,7 @@ export const procesarCantidadStock = async (
 ) => {
   const chatId = msg.chat.id;
   const query = `
-    UPDATE Productos 
+    UPDATE productos 
     SET stock = stock ${signo} ? 
     WHERE codigo = ? AND codigoEmpresa = ?
     AND (${signo === "-" ? "stock >= ?" : "1=1"})
@@ -292,7 +292,7 @@ export const procesarCantidadStock = async (
     } else {
       // Consultar el stock actual
       connection.query(
-        "SELECT stock FROM Productos WHERE codigo = ? AND codigoEmpresa = ?",
+        "SELECT stock FROM productos WHERE codigo = ? AND codigoEmpresa = ?",
         [codigo, msg.vendedor.codigoEmpresa],
         (err, results) => {
           if (!err && results.length > 0) {

@@ -31,7 +31,7 @@ Para cancelar el pedido en cualquier momento, escribe /cancelar`
 const mostrarProductos = async (bot, chatId, codigoEmpresa, cliente) => {
   const query = `
     SELECT codigo, descripcion, precio 
-    FROM Productos 
+    FROM productos 
     WHERE codigoEmpresa = ? 
     ORDER BY descripcion
   `;
@@ -141,7 +141,7 @@ export const handleCargarPedidoResponse = (bot, msg) => {
       // Si es un número, asumimos que es un código
       if (/^\d+$/.test(text)) {
         connection.query(
-          "SELECT codigo, nombre, apellido FROM Clientes WHERE codigo = ? AND codigoEmpresa = ?",
+          "SELECT codigo, nombre, apellido FROM clientes WHERE codigo = ? AND codigoEmpresa = ?",
           [text, state.data.codigoEmpresa],
           (err, results) => {
             if (err || results.length === 0) {
@@ -164,7 +164,7 @@ export const handleCargarPedidoResponse = (bot, msg) => {
       } else {
         // Búsqueda por nombre/apellido
         connection.query(
-          "SELECT codigo, nombre, apellido FROM Clientes WHERE (nombre LIKE ? OR apellido LIKE ?) AND codigoEmpresa = ? LIMIT 5",
+          "SELECT codigo, nombre, apellido FROM clientes WHERE (nombre LIKE ? OR apellido LIKE ?) AND codigoEmpresa = ? LIMIT 5",
           [`%${text}%`, `%${text}%`, state.data.codigoEmpresa],
           (err, results) => {
             if (err) {
@@ -281,7 +281,7 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
 
   if (action === "selectProducto") {
     connection.query(
-      "SELECT codigo, descripcion, precio FROM Productos WHERE codigo = ? AND codigoEmpresa = ?",
+      "SELECT codigo, descripcion, precio FROM productos WHERE codigo = ? AND codigoEmpresa = ?",
       [data, state.data.codigoEmpresa],
       (err, results) => {
         if (err || results.length === 0) {
@@ -319,7 +319,7 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
     );
   } else if (action === "selectCliente") {
     connection.query(
-      "SELECT codigo, nombre, apellido FROM Clientes WHERE codigo = ? AND codigoEmpresa = ?",
+      "SELECT codigo, nombre, apellido FROM clientes WHERE codigo = ? AND codigoEmpresa = ?",
       [data, state.data.codigoEmpresa],
       (err, results) => {
         if (err || results.length === 0) {
@@ -371,7 +371,7 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
 
       // Guardar pedido en la base de datos
       const pedidoQuery = `
-        INSERT INTO Pedidos (
+        INSERT INTO pedidos (
           codigoEmpresa,
           codigoCliente,
           codigoVendedorPedido,
@@ -414,7 +414,7 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
           ]);
 
           const itemsQuery = `
-            INSERT INTO PedidosItems (
+            INSERT INTO pedidositems (
               codigoPedido,
               codigoProducto,
               cantidad,
@@ -444,3 +444,24 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
     }
   }
 };
+
+const isUserAuthorized = async (chatId, username) => {
+  const query = `
+    SELECT * 
+    FROM vendedores 
+    WHERE telegramId = '${username}' OR telegramId = '${chatId}'
+  `;
+  // ... código existente ...
+};
+
+// Si hay consultas a la tabla pedidos
+const queryPedidos = `SELECT * FROM pedidos WHERE ...`; // Cambiar aquí
+
+// Si hay consultas a la tabla productos
+const queryProductos = `SELECT * FROM productos WHERE ...`; // Cambiar aquí
+
+// Si hay consultas a la tabla pedidositems
+const queryPedidosItems = `SELECT * FROM pedidositems WHERE ...`; // Cambiar aquí
+
+// Si hay consultas a la tabla cobros
+const queryCobros = `SELECT * FROM cobros WHERE ...`; // Cambiar aquí

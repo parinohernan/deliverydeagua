@@ -15,7 +15,7 @@ export const getEmpresa = (codigoEmpresa) => {
       SELECT 
         codigo,
         razonSocial
-      FROM Empresa 
+      FROM empresa 
       WHERE codigo = ?
     `;
 

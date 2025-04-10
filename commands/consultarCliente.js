@@ -28,7 +28,7 @@ export const handleConsultarClienteResponse = (bot, msg) => {
   const searchTerm = msg.text;
   const query = `
     SELECT codigo, nombre, apellido, direccion, telefono, saldo 
-    FROM Clientes 
+    FROM clientes 
     WHERE (nombre LIKE ? OR apellido LIKE ?) 
     AND codigoEmpresa = ?  -- Filtrar por la empresa del vendedor
     LIMIT 10

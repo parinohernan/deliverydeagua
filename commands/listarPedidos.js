@@ -10,9 +10,9 @@ export const listarPedidos = async (bot, msg) => {
       c.nombre,
       c.apellido,
       c.direccion,
-      (SELECT SUM(precioTotal) FROM PedidosItems WHERE codigoPedido = p.codigo) as total
-    FROM Pedidos p
-    JOIN Clientes c ON p.codigoCliente = c.codigo
+      (SELECT SUM(precioTotal) FROM pedidositems WHERE codigoPedido = p.codigo) as total
+    FROM pedidos p
+    JOIN clientes c ON p.codigocliente = c.codigo
     WHERE p.FechaEntrega IS NULL 
     AND p.codigoEmpresa = '${empresa}'
     AND p.Estado IS NULL
@@ -35,7 +35,7 @@ export const listarPedidos = async (bot, msg) => {
       const mensaje = `
 🔖 Pedido #${pedido.codigo}
 📅 Fecha: ${new Date(pedido.FechaPedido).toLocaleString()}
-👤 Cliente: ${pedido.nombre} ${pedido.apellido}
+👤 cliente: ${pedido.nombre} ${pedido.apellido}
 📍 Dirección: ${pedido.direccion}
 💰 Total: $${pedido.total}
 `;
@@ -76,7 +76,7 @@ const obtenerTiposPago = (empresa) => {
         id, 
         pago, 
         CAST(aplicaSaldo AS UNSIGNED) as aplicaSaldo
-      FROM tiposDePago
+      FROM tiposdepago
       WHERE codigoEmpresa = '${empresa}'
       ORDER BY id
     `;
@@ -144,9 +144,9 @@ const actualizarStockPedidoYSaldo = async (
         // Obtenemos la información del pedido
         const getPedidoInfoQuery = `
           SELECT 
-            p.codigoCliente,
-            (SELECT SUM(precioTotal) FROM PedidosItems WHERE codigoPedido = p.codigo) as total
-          FROM Pedidos p
+            p.codigocliente,
+            (SELECT SUM(precioTotal) FROM pedidositems WHERE codigoPedido = p.codigo) as total
+          FROM pedidos p
           WHERE p.codigo = ?
         `;
 
@@ -159,7 +159,7 @@ const actualizarStockPedidoYSaldo = async (
 
         // Actualizamos el pedido
         const updatePedidoQuery = `
-          UPDATE Pedidos 
+          UPDATE pedidos 
           SET FechaEntrega = NOW(),
               codigoVendedorEntrega = ?,
               tipoPago = ?,
@@ -181,7 +181,7 @@ const actualizarStockPedidoYSaldo = async (
         // Obtenemos los productos del pedido
         const getProductosQuery = `
           SELECT codigoProducto, cantidad
-          FROM PedidosItems
+          FROM pedidositems
           WHERE codigoPedido = ?
         `;
 
@@ -194,7 +194,7 @@ const actualizarStockPedidoYSaldo = async (
 
         // Actualizamos el stock de cada producto
         const updateStockQuery = `
-          UPDATE Productos
+          UPDATE productos
           SET stock = stock - ?
           WHERE codigo = ?
         `;
@@ -215,16 +215,16 @@ const actualizarStockPedidoYSaldo = async (
         // Si aplica saldo, actualizamos el saldo del cliente
         if (aplicaSaldo === 1) {
           console.log("Actualizando saldo del cliente...");
-          const updateClienteQuery = `
-            UPDATE Clientes 
+          const updateclienteQuery = `
+            UPDATE clientes 
             SET saldo = saldo + ?
             WHERE codigo = ?
           `;
 
           await new Promise((resolve, reject) => {
             connection.query(
-              updateClienteQuery,
-              [pedidoInfo.total, pedidoInfo.codigoCliente],
+              updateclienteQuery,
+              [pedidoInfo.total, pedidoInfo.codigocliente],
               (err) => {
                 if (err) reject(err);
                 else resolve();
@@ -258,7 +258,7 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
     // Validar si el pedido ya está entregado
     const checkQuery = `
       SELECT FechaEntrega 
-      FROM Pedidos 
+      FROM pedidos 
       WHERE codigo = ? AND codigoEmpresa = ?
     `;
 
@@ -277,7 +277,7 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
 
       // Guardamos el messageId del pedido original
       const pedidoMessageId = callbackQuery.message.message_id;
-      console.log("Empresa:", empresa);
+      console.log("empresa:", empresa);
       mostrarOpcionesPago(bot, chatId, pedidoId, pedidoMessageId, empresa);
 
       // Respondemos al callback para quitar el "loading" del botón
@@ -324,10 +324,10 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
           c.apellido,
           c.direccion,
           tp.pago as tipoPago,
-          (SELECT SUM(precioTotal) FROM PedidosItems WHERE codigoPedido = p.codigo) as total
-        FROM Pedidos p
-        JOIN Clientes c ON p.codigoCliente = c.codigo
-        JOIN tiposDePago tp ON p.tipoPago = tp.id
+          (SELECT SUM(precioTotal) FROM pedidositems WHERE codigoPedido = p.codigo) as total
+        FROM pedidos p
+        JOIN clientes c ON p.codigocliente = c.codigo
+        JOIN tiposdepago tp ON p.tipoPago = tp.id
         WHERE p.codigo = ?
       `;
 
@@ -342,7 +342,7 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
         const mensajeActualizado = `
 🔖 Pedido #${pedido.codigo}
 📅 Fecha: ${new Date(pedido.FechaPedido).toLocaleString()}
-👤 Cliente: ${pedido.nombre} ${pedido.apellido}
+👤 cliente: ${pedido.nombre} ${pedido.apellido}
 📍 Dirección: ${pedido.direccion}
 💰 Total: $${pedido.total}
 💳 Pago: ${pedido.tipoPago}
@@ -378,8 +378,8 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
         pi.cantidad,
         pi.precioTotal,
         p.descripcion
-      FROM PedidosItems pi
-      JOIN Productos p ON pi.codigoProducto = p.codigo
+      FROM pedidositems pi
+      JOIN productos p ON pi.codigoProducto = p.codigo
       WHERE pi.codigoPedido = ?
     `;
 
@@ -409,7 +409,7 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
     // Validar si el pedido ya está entregado o anulado
     const checkQuery = `
       SELECT FechaEntrega, Estado
-      FROM Pedidos 
+      FROM pedidos 
       WHERE codigo = ? AND codigoEmpresa = ?
     `;
 
@@ -471,7 +471,7 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
 
     // Anular el pedido
     const updateQuery = `
-      UPDATE Pedidos 
+      UPDATE pedidos 
       SET Estado = 'ANULADO'
       WHERE codigo = ?
     `;
@@ -497,9 +497,9 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
           c.nombre,
           c.apellido,
           c.direccion,
-          (SELECT SUM(precioTotal) FROM PedidosItems WHERE codigoPedido = p.codigo) as total
-        FROM Pedidos p
-        JOIN Clientes c ON p.codigoCliente = c.codigo
+          (SELECT SUM(precioTotal) FROM pedidositems WHERE codigoPedido = p.codigo) as total
+        FROM pedidos p
+        JOIN clientes c ON p.codigocliente = c.codigo
         WHERE p.codigo = ?
       `;
 
@@ -514,7 +514,7 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
         const mensajeActualizado = `
 🔖 Pedido #${pedido.codigo}
 📅 Fecha: ${new Date(pedido.FechaPedido).toLocaleString()}
-👤 Cliente: ${pedido.nombre} ${pedido.apellido}
+👤 cliente: ${pedido.nombre} ${pedido.apellido}
 📍 Dirección: ${pedido.direccion}
 💰 Total: $${pedido.total}
 ❌ ANULADO

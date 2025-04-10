@@ -66,10 +66,10 @@ const obtenerResumen = async (
         SUM(pi.cantidad) as cantidadTotal,
         SUM(pi.precioTotal) as importeTotal,
         COUNT(DISTINCT ped.codigo) as cantidadPedidos
-      FROM PedidosItems pi
-      JOIN Pedidos ped ON pi.codigoPedido = ped.codigo
-      JOIN Productos p ON pi.codigoProducto = p.codigo
-      WHERE ped.codigoEmpresa = ?
+      FROM pedidositems pi
+      JOIN pedidos ped ON pi.codigoPedido = ped.codigo
+      JOIN productos p ON pi.codigoProducto = p.codigo
+      WHERE ped.codigoempresa = ?
       ${soloEntregados ? "AND ped.FechaEntrega IS NOT NULL" : ""}
       ${filtroFecha}
       GROUP BY p.codigo, p.descripcion
@@ -327,9 +327,9 @@ const obtenerResumenDetallado = async (
           SUM(pi.cantidad) as cantidadTotal,
           SUM(pi.precioTotal) as importeTotal,
           COUNT(DISTINCT ped.codigo) as cantidadPedidos
-        FROM PedidosItems pi
-        JOIN Pedidos ped ON pi.codigoPedido = ped.codigo
-        JOIN Productos p ON pi.codigoProducto = p.codigo
+        FROM pedidositems pi
+        JOIN pedidos ped ON pi.codigoPedido = ped.codigo
+        JOIN productos p ON pi.codigoProducto = p.codigo
         WHERE ped.codigoEmpresa = ?
         AND ped.FechaEntrega IS NOT NULL
         ${filtroFecha}
@@ -371,10 +371,10 @@ const obtenerResumenDetallado = async (
           SUM(pi.cantidad) as cantidadTotal,
           SUM(pi.precioTotal) as importeTotal,
           COUNT(DISTINCT ped.codigo) as cantidadPedidos
-        FROM PedidosItems pi
-        JOIN Pedidos ped ON pi.codigoPedido = ped.codigo
-        JOIN Productos p ON pi.codigoProducto = p.codigo
-        JOIN Clientes c ON ped.codigoCliente = c.codigo
+        FROM pedidositems pi
+        JOIN pedidos ped ON pi.codigoPedido = ped.codigo
+        JOIN productos p ON pi.codigoProducto = p.codigo
+        JOIN clientes c ON ped.codigocliente = c.codigo
         WHERE ped.codigoEmpresa = ?
         AND ped.FechaEntrega IS NOT NULL
         ${filtroFecha}
@@ -394,15 +394,15 @@ const obtenerResumenDetallado = async (
         }
 
         // Organizamos los resultados por producto
-        const productosPorCliente = {};
+        const productosPorcliente = {};
         let total = 0;
         let cantidadPedidos = 0;
 
         results.forEach((item) => {
           total += Number(item.importeTotal);
 
-          if (!productosPorCliente[item.producto]) {
-            productosPorCliente[item.producto] = {
+          if (!productosPorcliente[item.producto]) {
+            productosPorcliente[item.producto] = {
               producto: item.producto,
               clientes: [],
               cantidadTotal: 0,
@@ -410,16 +410,16 @@ const obtenerResumenDetallado = async (
             };
           }
 
-          productosPorCliente[item.producto].clientes.push({
+          productosPorcliente[item.producto].clientes.push({
             nombre: `${item.nombre} ${item.apellido}`,
             cantidad: item.cantidadTotal,
             importe: item.importeTotal,
           });
 
-          productosPorCliente[item.producto].cantidadTotal += Number(
+          productosPorcliente[item.producto].cantidadTotal += Number(
             item.cantidadTotal
           );
-          productosPorCliente[item.producto].importeTotal += Number(
+          productosPorcliente[item.producto].importeTotal += Number(
             item.importeTotal
           );
 
@@ -430,7 +430,7 @@ const obtenerResumenDetallado = async (
         });
 
         resolve({
-          items: Object.values(productosPorCliente),
+          items: Object.values(productosPorcliente),
           total,
           cantidadPedidos,
           tipoInforme: "detallado",
@@ -531,7 +531,7 @@ const handleCalendarCallback = async (bot, callbackQuery) => {
                 callback_data: "tipoInforme_resumido",
               },
               {
-                text: "📋 Detallado por Cliente",
+                text: "📋 Detallado por cliente",
                 callback_data: "tipoInforme_detallado",
               },
             ],

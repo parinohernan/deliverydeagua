@@ -23,16 +23,18 @@ const isUserAuthorized = async (chatId, username) => {
   return new Promise((resolve) => {
     const query = `
       SELECT * 
-      FROM Vendedores 
+      FROM vendedores 
       WHERE telegramId = '${username}' OR telegramId = '${chatId}'
     `;
     connection.query(query, "", (err, results) => {
       // console.log("Consulta SQL:", query, results);
       if (err) {
+        console.log("Error en la consulta:", err);
         resolve({ authorized: false });
         return;
       }
       if (results.length === 0) {
+        console.log("No se encontró ningún vendedor para el usuario:", results);
         resolve({
           authorized: true,
           vendedor: {
@@ -115,3 +117,11 @@ bot.on("callback_query", async (callbackQuery) => {
 });
 // Iniciar la conexión a la base de datos
 connectToDatabase();
+
+connection.connect((err) => {
+  if (err) {
+    console.error("Error de conexión: " + err.stack);
+    return;
+  }
+  console.log("Conectado como ID " + connection.threadId);
+});
