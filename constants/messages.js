@@ -32,9 +32,9 @@ export const KEYBOARD_LAYOUT = {
 };
 
 export const getMainMenuMessage = (empresa, vendedor) => `
-[​](${"https://res.cloudinary.com/dmwrruots/image/upload/v1740529354/ljj6ymehzb5bgugk3bcr.png"})
+[​](${"https://res.cloudinary.com/drgs7xuag/image/upload/f_auto,q_auto/v1/recursos/edelecjhmeytkyc6ws14.png"})
 🏢 *${empresa.razonSocial}* 
-🏪 *Sistema de Gestión de Pedidos* 
+🏪 *Janus Delivery Manager* 
 👤 ${vendedor.nombre} ${vendedor.apellido}
 Usa los botones para navegar por el bot 
 o escribe el comando que necesitas.

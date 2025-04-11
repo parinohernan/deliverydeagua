@@ -98,7 +98,7 @@ export const handleCrearClienteResponse = (bot, msg) => {
 
       // Guardar cliente en la base de datos
       const query = `
-        INSERT INTO Clientes (
+        INSERT INTO clientes (
           codigoEmpresa, 
           nombre, 
           apellido, 
