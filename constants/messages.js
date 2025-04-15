@@ -4,7 +4,7 @@ export const KEYBOARD_BUTTONS = {
   COBROS: "💰 Cobros",
   NUEVO_CLIENTE: "🆕 Nuevo Cliente",
   RESUMEN: "📊 Resumen",
-  STOCK: "📦 Productos",
+  GESTION_PRODUCTOS: "📦 Gestión Productos",
   CANCELAR: "❌ Cancelar",
 };
 
@@ -17,15 +17,15 @@ export const COMMANDS = {
   CARGAR_PEDIDO: "/cargarpedido",
   LISTAR_PEDIDOS: "/listarpedidos",
   RESUMEN: "/resumen",
-  INFORMES: "/informes",
-  STOCK: "/stock",
+  INFORMES: "/informes", 
+  GESTION_PRODUCTOS: "/productos",
 };
 
 export const KEYBOARD_LAYOUT = {
   keyboard: [
     [KEYBOARD_BUTTONS.CARGAR_PEDIDO, KEYBOARD_BUTTONS.VER_PEDIDOS],
     [KEYBOARD_BUTTONS.NUEVO_CLIENTE, KEYBOARD_BUTTONS.RESUMEN],
-    [KEYBOARD_BUTTONS.COBROS, KEYBOARD_BUTTONS.STOCK],
+    [KEYBOARD_BUTTONS.COBROS, KEYBOARD_BUTTONS.GESTION_PRODUCTOS],
     [KEYBOARD_BUTTONS.CANCELAR],
   ],
   resize_keyboard: true,

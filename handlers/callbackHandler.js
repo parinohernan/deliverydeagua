@@ -41,6 +41,7 @@ export const handleCallback = async (bot, callbackQuery, auth) => {
     confirmarAnular: () => handleListarPedidosCallback(bot, callbackQuery),
     cancelarAnular: () => handleListarPedidosCallback(bot, callbackQuery),
     calendar: () => handleResumenCallback(bot, callbackQuery),
+    
   };
 
   // Ejecutar el manejador correspondiente
