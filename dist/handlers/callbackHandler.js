@@ -8,7 +8,6 @@ import {
   actualizarPrecio,
   // actualizarPrecioXCodigo,
 } from "../commands/stock.js";
-import { handleProductosCallback } from "../commands/productos.js";
 
 export const handleCallback = async (bot, callbackQuery, auth) => {
   const action = callbackQuery.data.split("_")[0];
@@ -43,15 +42,6 @@ export const handleCallback = async (bot, callbackQuery, auth) => {
     cancelarAnular: () => handleListarPedidosCallback(bot, callbackQuery),
     calendar: () => handleResumenCallback(bot, callbackQuery),
   };
-
-  // Si es un callback de productos, manejarlo directamente
-  if (
-    ["ingresar_stock", "ver_stock", "actualizarprecio_producto"].includes(
-      callbackQuery.data
-    )
-  ) {
-    return handleProductosCallback(bot, callbackQuery);
-  }
 
   // Ejecutar el manejador correspondiente
   const handler = actionHandlers[action];

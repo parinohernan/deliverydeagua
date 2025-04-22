@@ -27,9 +27,8 @@ import {
 import { handleHelp } from "./helpHandler.js";
 import { KEYBOARD_BUTTONS } from "../constants/messages.js";
 import { conversations } from "./conversationHandler.js";
-import { productos, handleProductosResponse } from "../commands/productos.js";
 
-export const mostrarMenuPrincipal = async (bot, chatId, vendedor) => {
+const mostrarMenuPrincipal = async (bot, chatId, vendedor) => {
   console.log("Mostrando menú principal");
   try {
     const empresa = await getEmpresa(vendedor.codigoEmpresa);
@@ -84,7 +83,6 @@ const handleActiveConversation = (bot, msg) => {
     handleCrearClienteResponse(bot, msg) ||
     handleConsultarClienteResponse(bot, msg) ||
     handleCargarPedidoResponse(bot, msg) ||
-    handleProductosResponse(bot, msg) ||
     handleResumenEntreFechasResponse(bot, msg) ||
     handleCobrosResponse(bot, msg)
   );
@@ -119,7 +117,6 @@ const commandHandlers = {
   [COMMANDS.CARGAR_PEDIDO]: (bot, msg) => cargarPedido(bot, msg),
   [COMMANDS.LISTAR_PEDIDOS]: (bot, msg) => listarPedidos(bot, msg),
   [COMMANDS.RESUMEN]: (bot, msg) => resumenPedidos(bot, msg),
-  [COMMANDS.GESTION_PRODUCTOS]: (bot, msg) => productos(bot, msg),
   [COMMANDS.STOCK]: (bot, msg) => stock(bot, msg),
   [COMMANDS.CANCELAR]: (bot, msg) => {
     handleCancelacion(bot, msg.chat.id);
@@ -134,7 +131,7 @@ const BUTTON_TO_COMMAND = {
   [KEYBOARD_BUTTONS.VER_PEDIDOS]: COMMANDS.LISTAR_PEDIDOS,
   [KEYBOARD_BUTTONS.NUEVO_CLIENTE]: COMMANDS.CREAR_CLIENTE,
   [KEYBOARD_BUTTONS.RESUMEN]: COMMANDS.RESUMEN,
-  [KEYBOARD_BUTTONS.GESTION_PRODUCTOS]: COMMANDS.GESTION_PRODUCTOS,
+  [KEYBOARD_BUTTONS.STOCK]: COMMANDS.STOCK,
   [KEYBOARD_BUTTONS.CANCELAR]: COMMANDS.CANCELAR,
 };
 

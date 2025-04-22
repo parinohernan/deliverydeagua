@@ -11,6 +11,12 @@ import {
   endConversation,
 } from "../handlers/conversationHandler.js";
 import { mostrarMenuPrincipal } from "../handlers/commandHandler.js";
+import {
+  handleStockCallback,
+  ingresarStock,
+  listarStock,
+  actualizarPrecio,
+} from "./stock.js";
 import { parse } from "dotenv";
 
 export const productos = async (bot, msg) => {
@@ -19,11 +25,11 @@ export const productos = async (bot, msg) => {
   startConversation(chatId, "gestionProductos");
   bot.sendMessage(
     chatId,
-    "🛒 Gestión de Productos\n\nElige una opción:\n1️⃣. Lista de Productos y stock\n2️⃣. Crear nuevo producto\n3️⃣. Modificar Producto\n4️⃣. Eliminar Producto\n\n",
+    "🛒 Gestión de Productos\n\nElige una opción:\n1️⃣. Lista de Productos\n2️⃣. Crear nuevo producto\n3️⃣. Modificar Producto\n4️⃣. Eliminar Producto\n5️⃣. Gestionar Stock\n\n",
     {
       parse_mode: "Markdown",
       reply_markup: {
-        keyboard: [["1️⃣", "2️⃣", "3️⃣", "4️⃣"], ["📱 Menu Principal"]],
+        keyboard: [["1️⃣", "2️⃣", "3️⃣"], ["4️⃣", "5️⃣"], ["📱 Menu Principal"]],
         resize_keyboard: true,
         one_time_keyboard: false,
       },
@@ -51,13 +57,6 @@ export const handleProductosResponse = async (bot, msg) => {
     return true;
   }
   if (texto === "⏪ Atrás") {
-    // const state = getConversationState(chatId);
-    // if (state && state.step > 0) {
-    //   bot.sendMessage(chatId, "Regresando al paso anterior...");
-    //   state.step -= 1; // Retrocede un paso
-    // } else {
-    //   bot.sendMessage(chatId, "Regresando al menú de productos...");
-    // }
     state.step = 0; // Reinicia el paso a 0
     productos(bot, msg); // Si no hay pasos anteriores, vuelve a mostrar el menú de productos
     return true;
@@ -137,6 +136,34 @@ export const handleProductosResponse = async (bot, msg) => {
           });
           nextStep(chatId, 8);
           break; // Salir del switch para evitar que continúe a la siguiente opción
+        } else if (texto === "5" || texto === "5️⃣") {
+          // En lugar de terminar la conversación y redirigir a stock,
+          // mostramos las opciones de stock aquí
+          const options = {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: "Actualizar Stock", callback_data: "ingresar_stock" },
+                  {
+                    text: "Ver Stock de Productos",
+                    callback_data: "ver_stock",
+                  },
+                ],
+                [
+                  {
+                    text: "Actualizar Precio",
+                    callback_data: "actualizarprecio_producto",
+                  },
+                ],
+              ],
+            },
+          };
+          bot.sendMessage(
+            chatId,
+            "Selecciona la opción que deseas realizar:",
+            options
+          );
+          return true;
         } else {
           bot.sendMessage(chatId, "Opción no válida. Intenta nuevamente.");
         }
@@ -410,4 +437,27 @@ export const handleProductosResponse = async (bot, msg) => {
   }
 
   return false;
+};
+
+export const handleProductosCallback = async (bot, callbackQuery) => {
+  const chatId = callbackQuery.message.chat.id;
+  const data = callbackQuery.data;
+
+  switch (data) {
+    case "ingresar_stock":
+      ingresarStock(bot, callbackQuery);
+      break;
+    case "ver_stock":
+      listarStock(bot, callbackQuery);
+      break;
+    case "actualizarprecio_producto":
+      actualizarPrecio(bot, callbackQuery);
+      break;
+    default:
+      // Si es un callback relacionado con stock (ingresoStock_, salidaStock_, etc.)
+      if (data.includes("Stock_") || data.includes("Precio")) {
+        handleStockCallback(bot, callbackQuery);
+      }
+      break;
+  }
 };
