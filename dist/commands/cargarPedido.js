@@ -33,7 +33,6 @@ const mostrarProductos = async (bot, chatId, codigoEmpresa, cliente) => {
     SELECT codigo, descripcion, precio 
     FROM productos 
     WHERE codigoEmpresa = ? 
-    AND activo = 1
     ORDER BY descripcion
   `;
 
@@ -136,6 +135,7 @@ export const handleCargarPedidoResponse = (bot, msg) => {
     endConversation(chatId);
     return true;
   }
+
   switch (state.step) {
     case 0: // Código o búsqueda de cliente
       // Si es un número, asumimos que es un código
@@ -238,8 +238,6 @@ export const handleCargarPedidoResponse = (bot, msg) => {
 
 export const handlePedidoCallback = async (bot, callbackQuery) => {
   const [action, data] = callbackQuery.data.split("_");
-  console.log(action, data);
-  
   const chatId = callbackQuery.message.chat.id;
   const state = getConversationState(chatId);
 

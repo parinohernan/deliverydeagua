@@ -14,13 +14,11 @@ export const getConversationState = (chatId) => {
   return conversations.get(chatId);
 };
 
-export const nextStep = (chatId,step) => {
+export const nextStep = (chatId) => {
   const state = conversations.get(chatId);
-  if (step) {
-    state.step = step;
-  } else {
+  if (state) {
     state.step += 1;
-  } 
+  }
 };
 
 export const endConversation = (chatId) => {
