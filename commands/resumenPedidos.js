@@ -18,27 +18,44 @@ export const resumenPedidos = async (bot, msg) => {
   const chatId = msg.chat.id;
   const empresa = msg.vendedor.codigoEmpresa;
 
+  // Obtener fechas para las opciones predefinidas
+  const hoy = new Date();
+  const ayer = new Date(hoy);
+  ayer.setDate(hoy.getDate() - 1);
+
+  const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  const ultimoDiaMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+
   const options = {
     reply_markup: {
       inline_keyboard: [
         [
-          { text: "📊 Pedidos Hoy", callback_data: "resumen_pedidosHoy" },
-          { text: "✅ Entregados Hoy", callback_data: "resumen_entregadosHoy" },
-        ],
-        [
-          { text: "📊 Pedidos Semana", callback_data: "resumen_pedidosSemana" },
           {
-            text: "✅ Entregados Semana",
-            callback_data: "resumen_entregadosSemana",
+            text: "📊 Resumen de Hoy",
+            callback_data: `resumen_predefinido_${formatoFecha(
+              hoy
+            )}_${formatoFecha(hoy)}`,
           },
         ],
         [
-          { text: "📊 Pedidos Mes", callback_data: "resumen_pedidosMes" },
-          { text: "✅ Entregados Mes", callback_data: "resumen_entregadosMes" },
+          {
+            text: "📊 Resumen de Ayer",
+            callback_data: `resumen_predefinido_${formatoFecha(
+              ayer
+            )}_${formatoFecha(ayer)}`,
+          },
         ],
         [
           {
-            text: "📅 Resumen Entre Fechas",
+            text: "📊 Mes Actual",
+            callback_data: `resumen_predefinido_${formatoFecha(
+              primerDiaMes
+            )}_${formatoFecha(ultimoDiaMes)}`,
+          },
+        ],
+        [
+          {
+            text: "📅 Personalizar Fechas",
             callback_data: "resumen_entreFechas",
           },
         ],
@@ -46,11 +63,7 @@ export const resumenPedidos = async (bot, msg) => {
     },
   };
 
-  bot.sendMessage(
-    chatId,
-    "Selecciona el tipo de resumen que deseas ver:",
-    options
-  );
+  bot.sendMessage(chatId, "Selecciona el período para el resumen:", options);
 };
 
 const obtenerResumen = async (
@@ -100,37 +113,95 @@ const obtenerResumen = async (
 
 export const handleResumenCallback = async (bot, callbackQuery) => {
   const chatId = callbackQuery.message.chat.id;
-  const [_, tipo] = callbackQuery.data.split("_");
+  const [action, ...params] = callbackQuery.data.split("_");
   const empresa = callbackQuery.message.vendedor.codigoEmpresa;
-  console.log("handleResumenCallback - tipo:", tipo);
+
+  console.log("handleResumenCallback - action:", action);
+  console.log("handleResumenCallback - params:", params);
   console.log(
     "handleResumenCallback - callbackQuery.data:",
     callbackQuery.data
   );
 
-  // Si es tipo de informe (resumido o detallado)
-  if (callbackQuery.data.startsWith("tipoInforme_")) {
-    console.log("Procesando callback de tipo informe");
-    const state = getConversationState(chatId);
-    console.log("Estado de la conversación:", state);
-    if (!state || state.command !== "resumenEntreFechas") return;
+  // Manejar resumen predefinido
+  if (action === "resumen" && params[0] === "predefinido") {
+    const fechaInicio = params[1];
+    const fechaFin = params[2];
 
-    const tipoInforme = tipo; // "resumido" o "detallado"
-    state.data.tipoInforme = tipoInforme;
+    // Convertir las fechas al formato correcto para MySQL
+    const fechaInicioSQL = convertirFechaParaSQL(fechaInicio);
+    const fechaFinSQL = convertirFechaParaSQL(fechaFin);
 
     const filtroFecha = `
       AND DATE(ped.FechaEntrega) 
-      BETWEEN '${state.data.fechaInicio}' AND '${state.data.fechaFin}'
+      BETWEEN '${fechaInicioSQL}' AND '${fechaFinSQL}'
     `;
 
-    console.log("Filtro fecha:", filtroFecha);
+    try {
+      // Mostrar opciones de tipo de informe
+      const options = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "📊 Resumen",
+                callback_data: `tipoInforme_resumido_${fechaInicio}_${fechaFin}`,
+              },
+              {
+                text: "📋 Detallado",
+                callback_data: `tipoInforme_detallado_${fechaInicio}_${fechaFin}`,
+              },
+            ],
+          ],
+        },
+      };
+
+      bot.sendMessage(
+        chatId,
+        "Selecciona el tipo de informe que deseas ver:",
+        options
+      );
+    } catch (error) {
+      console.error("Error al procesar resumen predefinido:", error);
+      bot.sendMessage(
+        chatId,
+        "Error al procesar el resumen. Por favor, intenta nuevamente."
+      );
+    }
+    return;
+  }
+
+  // Si es tipo de informe (resumido o detallado)
+  if (action === "tipoInforme") {
+    const tipoInforme = params[0];
+    const fechaInicio = params[1];
+    const fechaFin = params[2];
+
+    console.log("Procesando tipo informe con fechas:", {
+      tipoInforme,
+      fechaInicio,
+      fechaFin,
+    });
+
+    // Convertir las fechas al formato correcto para MySQL
+    const fechaInicioSQL = convertirFechaParaSQL(fechaInicio);
+    const fechaFinSQL = convertirFechaParaSQL(fechaFin);
+
+    const filtroFecha = `
+      AND DATE(ped.FechaEntrega) 
+      BETWEEN '${fechaInicioSQL}' AND '${fechaFinSQL}'
+    `;
 
     try {
+      console.log("Ejecutando consulta con filtro:", filtroFecha);
+      console.log("Empresa:", empresa);
+      console.log("Tipo Informe:", tipoInforme);
+
       const resumen = await obtenerResumenDetallado(
         connection,
         filtroFecha,
-        state.data.empresa,
-        state.data.tipoInforme
+        empresa,
+        tipoInforme
       );
 
       if (resumen.items.length === 0) {
@@ -141,7 +212,7 @@ export const handleResumenCallback = async (bot, callbackQuery) => {
       } else {
         let mensaje = "";
 
-        if (resumen.tipoInforme === "resumido") {
+        if (tipoInforme === "resumido") {
           mensaje = resumen.items
             .map(
               (item) =>
@@ -173,7 +244,7 @@ ${clientesInfo}`;
         const mensajeCompleto = `📊 Pedidos Entregados (${
           tipoInforme === "resumido" ? "Resumen" : "Detallado"
         })
-Período: ${state.data.fechaInicioFormato} al ${state.data.fechaFinFormato}
+Período: ${fechaInicio} al ${fechaFin}
 Cantidad de Pedidos: ${resumen.cantidadPedidos}
 
 ${mensaje}
@@ -182,133 +253,39 @@ ${mensaje}
 
         bot.sendMessage(chatId, mensajeCompleto);
       }
-      endConversation(chatId);
     } catch (error) {
       console.error("Error al obtener resumen:", error);
       bot.sendMessage(chatId, `Error al obtener el resumen: ${error.message}`);
-      endConversation(chatId);
     }
-
     return;
   }
 
-  // Si es una acción relacionada con el calendario
-  if (callbackQuery.data.startsWith("calendar_")) {
+  // Si es una acción relacionada con el calendario (para fechas personalizadas)
+  if (
+    (action === "resumen" && params[0] === "entreFechas") ||
+    callbackQuery.data.startsWith("calendar_")
+  ) {
     await handleCalendarCallback(bot, callbackQuery);
     return;
   }
+};
 
-  // Si es resumen entre fechas, iniciamos el diálogo
-  if (tipo === "entreFechas") {
-    startConversation(chatId, "resumenEntreFechas");
-    const state = getConversationState(chatId);
-    state.data = {
-      empresa: empresa,
-      soloEntregados: true, // Siempre serán entregados según la nueva especificación
-    };
-    state.step = 1; // Inicializamos el paso en 1
-
-    // Mostramos el calendario para seleccionar la fecha inicial
-    const hoy = new Date();
-    const mes = hoy.getMonth();
-    const anio = hoy.getFullYear();
-
-    mostrarCalendario(bot, chatId, mes, anio, "inicio");
-
-    return;
-  }
-
-  let filtroFecha = "";
-  let titulo = "";
-
-  switch (tipo) {
-    case "pedidosHoy":
-      filtroFecha = "AND DATE(ped.FechaPedido) = CURDATE()";
-      titulo = "Pedidos de Hoy";
-      break;
-    case "entregadosHoy":
-      filtroFecha = "AND DATE(ped.FechaEntrega) = CURDATE()";
-      titulo = "Entregados Hoy";
-      break;
-    case "pedidosSemana":
-      const hoy = new Date();
-      const primerDiaSemana = new Date(hoy);
-      primerDiaSemana.setDate(hoy.getDate() - hoy.getDay() + 1);
-
-      const ultimoDiaSemana = new Date(hoy);
-      ultimoDiaSemana.setDate(hoy.getDate() + (7 - hoy.getDay()));
-
-      filtroFecha = `AND ped.FechaPedido BETWEEN DATE_SUB(CURDATE(), INTERVAL DAYOFWEEK(CURDATE()) - 1 DAY) 
-        AND DATE_ADD(CURDATE(), INTERVAL 7 - DAYOFWEEK(CURDATE()) DAY)`;
-      titulo = `Pedidos de esta Semana (${formatoFecha(
-        primerDiaSemana
-      )} al ${formatoFecha(ultimoDiaSemana)})`;
-      break;
-    case "entregadosSemana":
-      const hoyEntrega = new Date();
-      const primerDiaSemanaEntrega = new Date(hoyEntrega);
-      primerDiaSemanaEntrega.setDate(
-        hoyEntrega.getDate() - hoyEntrega.getDay() + 1
-      );
-
-      const ultimoDiaSemanaEntrega = new Date(hoyEntrega);
-      ultimoDiaSemanaEntrega.setDate(
-        hoyEntrega.getDate() + (7 - hoyEntrega.getDay())
-      );
-
-      filtroFecha = `AND ped.FechaEntrega BETWEEN DATE_SUB(CURDATE(), INTERVAL DAYOFWEEK(CURDATE()) - 1 DAY) 
-        AND DATE_ADD(CURDATE(), INTERVAL 7 - DAYOFWEEK(CURDATE()) DAY)`;
-      titulo = `Entregados de esta Semana (${formatoFecha(
-        primerDiaSemanaEntrega
-      )} al ${formatoFecha(ultimoDiaSemanaEntrega)})`;
-      break;
-    case "pedidosMes":
-      filtroFecha =
-        "AND YEAR(ped.FechaPedido) = YEAR(CURDATE()) AND MONTH(ped.FechaPedido) = MONTH(CURDATE())";
-      titulo = "Pedidos de este Mes";
-      break;
-    case "entregadosMes":
-      filtroFecha =
-        "AND YEAR(ped.FechaEntrega) = YEAR(CURDATE()) AND MONTH(ped.FechaEntrega) = MONTH(CURDATE())";
-      titulo = "Entregados este Mes";
-      break;
+const convertirFechaParaSQL = (fechaStr) => {
+  if (!fechaStr || typeof fechaStr !== "string") {
+    console.error("Fecha inválida recibida:", fechaStr);
+    throw new Error("Fecha inválida");
   }
 
   try {
-    const soloEntregados = tipo.startsWith("entregados");
-    const resumen = await obtenerResumen(
-      connection,
-      filtroFecha,
-      empresa,
-      soloEntregados
-    );
-    if (resumen.items.length === 0) {
-      bot.sendMessage(
-        chatId,
-        `No hay datos para mostrar en ${titulo.toLowerCase()}`
-      );
-      return;
+    // Convertir de formato dd/mm/yyyy a yyyy-mm-dd
+    const [dia, mes, anio] = fechaStr.split("/");
+    if (!dia || !mes || !anio) {
+      throw new Error("Formato de fecha inválido");
     }
-
-    const mensaje = resumen.items
-      .map(
-        (item) =>
-          `📦 ${item.descripcion}
-   Cantidad: ${item.cantidadTotal}
-   Total: $${item.importeTotal}`
-      )
-      .join("\n\n");
-
-    const mensajeCompleto = `📊 ${titulo}
-Cantidad de Pedidos: ${resumen.cantidadPedidos}
-
-${mensaje}
-
-💰 Total General: $${resumen.total}`;
-
-    bot.sendMessage(chatId, mensajeCompleto);
+    return `${anio}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}`;
   } catch (error) {
-    bot.sendMessage(chatId, `Error al obtener el resumen: ${error.message}`);
+    console.error("Error al convertir fecha:", error);
+    throw new Error("Error al convertir fecha");
   }
 };
 
@@ -319,6 +296,11 @@ const obtenerResumenDetallado = async (
   tipoInforme = "resumido"
 ) => {
   return new Promise((resolve, reject) => {
+    console.log("Iniciando consulta para resumen detallado");
+    console.log("Filtro fecha:", filtroFecha);
+    console.log("Empresa:", empresa);
+    console.log("Tipo informe:", tipoInforme);
+
     // Si es resumido, usamos la consulta actual
     if (tipoInforme === "resumido") {
       const query = `
@@ -337,11 +319,16 @@ const obtenerResumenDetallado = async (
         ORDER BY cantidadTotal DESC
       `;
 
+      console.log("Query resumido:", query);
+
       connection.query(query, [empresa], (err, results) => {
         if (err) {
+          console.error("Error en consulta resumida:", err);
           reject(err);
           return;
         }
+
+        console.log("Resultados resumidos:", results);
 
         if (results.length === 0) {
           resolve({ items: [], total: 0, cantidadPedidos: 0 });
@@ -382,11 +369,16 @@ const obtenerResumenDetallado = async (
         ORDER BY p.descripcion, cantidadTotal DESC
       `;
 
+      console.log("Query detallado:", query);
+
       connection.query(query, [empresa], (err, results) => {
         if (err) {
+          console.error("Error en consulta detallada:", err);
           reject(err);
           return;
         }
+
+        console.log("Resultados detallados:", results);
 
         if (results.length === 0) {
           resolve({ items: [], total: 0, cantidadPedidos: 0 });
@@ -423,7 +415,6 @@ const obtenerResumenDetallado = async (
             item.importeTotal
           );
 
-          // Tomamos el valor máximo de cantidadPedidos (ya que es el total)
           if (item.cantidadPedidos > cantidadPedidos) {
             cantidadPedidos = item.cantidadPedidos;
           }
@@ -444,19 +435,44 @@ const obtenerResumenDetallado = async (
 const handleCalendarCallback = async (bot, callbackQuery) => {
   const chatId = callbackQuery.message.chat.id;
   const messageId = callbackQuery.message.message_id;
-  const state = getConversationState(chatId);
 
-  if (!state || state.command !== "resumenEntreFechas") return;
+  console.log("Manejando callback del calendario:", callbackQuery.data);
+
+  // Iniciar conversación si no existe
+  if (callbackQuery.data === "resumen_entreFechas") {
+    console.log("Iniciando nueva conversación para resumen entre fechas");
+    startConversation(chatId, "resumenEntreFechas");
+    const state = getConversationState(chatId);
+    state.data = {
+      empresa: callbackQuery.message.vendedor.codigoEmpresa,
+    };
+
+    // Mostrar el calendario inicial
+    const hoy = new Date();
+    mostrarCalendario(bot, chatId, hoy.getMonth(), hoy.getFullYear(), "inicio");
+    return;
+  }
+
+  const state = getConversationState(chatId);
+  if (!state || state.command !== "resumenEntreFechas") {
+    console.log("Estado no válido para el calendario:", state);
+    startConversation(chatId, "resumenEntreFechas");
+    const newState = getConversationState(chatId);
+    newState.data = {
+      empresa: callbackQuery.message.vendedor.codigoEmpresa,
+    };
+  }
 
   const parts = callbackQuery.data.split("_");
   const action = parts[1];
 
+  console.log("Acción del calendario:", action);
+
   if (action === "month") {
-    // Navegación entre meses
-    const direction = parts[2]; // prev o next
+    const direction = parts[2];
     const currentMonth = parseInt(parts[3]);
     const currentYear = parseInt(parts[4]);
-    const tipoFecha = parts[5]; // inicio o fin
+    const tipoFecha = parts[5];
 
     let newMonth = currentMonth;
     let newYear = currentYear;
@@ -475,42 +491,58 @@ const handleCalendarCallback = async (bot, callbackQuery) => {
       }
     }
 
-    await bot.deleteMessage(chatId, messageId);
+    try {
+      await bot.deleteMessage(chatId, messageId);
+    } catch (error) {
+      console.error("Error al eliminar mensaje del calendario:", error);
+    }
     mostrarCalendario(bot, chatId, newMonth, newYear, tipoFecha);
   } else if (action === "day") {
-    // Selección de un día específico
     const day = parseInt(parts[2]);
     const month = parseInt(parts[3]);
     const year = parseInt(parts[4]);
-    const tipoFecha = parts[5]; // inicio o fin
+    const tipoFecha = parts[5];
 
     const fechaSeleccionada = new Date(year, month, day);
-    const fechaFormateada = `${day.toString().padStart(2, "0")}/${(month + 1)
-      .toString()
-      .padStart(2, "0")}/${year}`;
+    const fechaFormateada = formatoFecha(fechaSeleccionada);
+
+    console.log("Fecha seleccionada:", fechaFormateada, "tipo:", tipoFecha);
+
+    const state = getConversationState(chatId);
+    if (!state.data) {
+      state.data = {
+        empresa: callbackQuery.message.vendedor.codigoEmpresa,
+      };
+    }
 
     if (tipoFecha === "inicio") {
       state.data.fechaInicio = fechaSeleccionada.toISOString().split("T")[0];
       state.data.fechaInicioFormato = fechaFormateada;
 
-      await bot.deleteMessage(chatId, messageId);
+      try {
+        await bot.deleteMessage(chatId, messageId);
+      } catch (error) {
+        console.error("Error al eliminar mensaje del calendario:", error);
+      }
       bot.sendMessage(
         chatId,
         `Fecha de inicio seleccionada: ${fechaFormateada}`
       );
 
-      // Avanzamos al siguiente paso y mostramos el calendario para la fecha final
       nextStep(chatId);
       mostrarCalendario(bot, chatId, month, year, "fin");
     } else if (tipoFecha === "fin") {
       state.data.fechaFin = fechaSeleccionada.toISOString().split("T")[0];
       state.data.fechaFinFormato = fechaFormateada;
 
-      await bot.deleteMessage(chatId, messageId);
+      try {
+        await bot.deleteMessage(chatId, messageId);
+      } catch (error) {
+        console.error("Error al eliminar mensaje del calendario:", error);
+      }
       bot.sendMessage(chatId, `Fecha final seleccionada: ${fechaFormateada}`);
 
-      // Verificamos que la fecha final sea posterior a la inicial
-      if (state.data.fechaFin < state.data.fechaInicio) {
+      if (new Date(state.data.fechaFin) < new Date(state.data.fechaInicio)) {
         bot.sendMessage(
           chatId,
           "❌ La fecha final debe ser posterior a la fecha inicial. Por favor, selecciona otra fecha."
@@ -519,7 +551,6 @@ const handleCalendarCallback = async (bot, callbackQuery) => {
         return;
       }
 
-      // Avanzamos al paso 3: selección del tipo de informe
       nextStep(chatId);
 
       const options = {
@@ -527,12 +558,12 @@ const handleCalendarCallback = async (bot, callbackQuery) => {
           inline_keyboard: [
             [
               {
-                text: "📊 Resumido",
-                callback_data: "tipoInforme_resumido",
+                text: "📊 Resumen",
+                callback_data: `tipoInforme_resumido_${state.data.fechaInicioFormato}_${state.data.fechaFinFormato}`,
               },
               {
-                text: "📋 Detallado por cliente",
-                callback_data: "tipoInforme_detallado",
+                text: "📋 Detallado",
+                callback_data: `tipoInforme_detallado_${state.data.fechaInicioFormato}_${state.data.fechaFinFormato}`,
               },
             ],
           ],
@@ -540,6 +571,7 @@ const handleCalendarCallback = async (bot, callbackQuery) => {
       };
 
       bot.sendMessage(chatId, "¿Qué tipo de informe deseas ver?", options);
+      endConversation(chatId);
     }
   }
 };
