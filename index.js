@@ -9,6 +9,7 @@ import {
   endConversation,
 } from "./handlers/conversationHandler.js";
 import { handleCallback } from "./handlers/callbackHandler.js";
+import { handleCobrosResponse } from "./commands/cobros.js";
 // import { operacionesPendientes } from "./handlers/conversationHandler.js";
 // import { procesarEntrada } from "./commands/stock.js";
 // Configuración del bot
@@ -67,6 +68,8 @@ bot.on("message", async (msg) => {
   const username = msg.from.username;
   const text = msg.text?.toLowerCase();
 
+  console.log("Mensaje recibido:", text);
+
   // Verificar autorización o la conexión a la base de datos
   const auth = await isUserAuthorized(chatId, username);
   if (!auth.authorized) {
@@ -81,6 +84,16 @@ bot.on("message", async (msg) => {
   // Agregar información del vendedor al mensaje
   msg.vendedor = auth.vendedor;
 
+  // Verificar si hay estado de conversación activo
+  const state = getConversationState(chatId);
+
+  // Verificar primero si es una respuesta a cobros
+  if (state && state.command === "cobros") {
+    console.log("Se detectó estado de cobros, procesando respuesta...");
+    const handled = await handleCobrosResponse(bot, msg);
+    if (handled) return;
+  }
+
   // // Verificar si hay una operación pendiente
   // if (operacionesPendientes[chatId]) {
   //   procesarEntrada(bot, msg);
@@ -89,7 +102,6 @@ bot.on("message", async (msg) => {
 
   // Verificar si es el comando cancelar
   if (text === "/cancelar") {
-    const state = getConversationState(chatId);
     if (state) {
       endConversation(chatId);
     }
@@ -100,7 +112,6 @@ bot.on("message", async (msg) => {
   const commandHandled = handleCommand(bot, msg);
   // Si no se manejó ningún comando y no hay conversación activa, mostrar menú principal
   if (!commandHandled) {
-    const state = getConversationState(chatId);
     if (!state) {
       handleCommand(bot, { ...msg, text: "/menu" });
     }
@@ -112,6 +123,9 @@ bot.on("callback_query", async (callbackQuery) => {
     callbackQuery.message.chat.id,
     callbackQuery.from.username
   );
+
+  // Añadir información del vendedor al mensaje del callback
+  callbackQuery.message.vendedor = auth.vendedor;
 
   handleCallback(bot, callbackQuery, auth);
 });

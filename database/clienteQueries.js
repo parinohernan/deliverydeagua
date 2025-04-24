@@ -1,6 +1,12 @@
 import { connection } from "./connection.js";
 
 export const buscarClientesPorNombre = async (busqueda, empresaCodigo) => {
+  console.log(
+    "Buscando clientes con búsqueda:",
+    busqueda,
+    "para empresa:",
+    empresaCodigo
+  );
   return new Promise((resolve, reject) => {
     let query = `
     SELECT 
@@ -11,17 +17,18 @@ export const buscarClientesPorNombre = async (busqueda, empresaCodigo) => {
           c.telefono,
           COALESCE(SUM(p.saldo), 0) as saldo
           FROM clientes c
-          LEFT JOIN pedidos p ON c.codigo = p.codigoCliente
+          LEFT JOIN pedidos p ON c.codigo = p.codigoCliente AND p.codigoEmpresa = ?
           WHERE 
           (LOWER(c.nombre) LIKE LOWER(?) 
           OR LOWER(c.apellido) LIKE LOWER(?))
-          AND (c.codigoEmpresa = ?) AND (c.saldo > 0)
+          AND c.codigoEmpresa = ?
           GROUP BY 
           c.codigo,
           c.nombre,
           c.apellido,
           c.direccion,
           c.telefono
+          HAVING saldo > 0
           ORDER BY 
           c.apellido, 
           c.nombre
@@ -38,27 +45,36 @@ export const buscarClientesPorNombre = async (busqueda, empresaCodigo) => {
           c.telefono,
           COALESCE(SUM(p.saldo), 0) as saldo
         FROM clientes c
-        LEFT JOIN pedidos p ON c.codigo = p.codigoCliente
-        WHERE c.codigoEmpresa = ? AND (c.saldo > 0)
+        LEFT JOIN pedidos p ON c.codigo = p.codigoCliente AND p.codigoEmpresa = ?
+        WHERE c.codigoEmpresa = ?
         GROUP BY 
           c.codigo,
           c.nombre,
           c.apellido,
           c.direccion,
           c.telefono
+        HAVING saldo > 0
+        ORDER BY 
+          c.apellido, 
+          c.nombre
       `;
     }
 
     const params =
       busqueda === "*"
-        ? [empresaCodigo]
-        : [`%${busqueda}%`, `%${busqueda}%`, empresaCodigo];
+        ? [empresaCodigo, empresaCodigo]
+        : [empresaCodigo, `%${busqueda}%`, `%${busqueda}%`, empresaCodigo];
+
+    console.log("Ejecutando consulta:", query);
+    console.log("Con parámetros:", params);
 
     connection.query(query, params, (err, results) => {
       if (err) {
+        console.error("Error en buscarClientesPorNombre:", err);
         reject(err);
         return;
       }
+      console.log("Resultados encontrados:", results.length);
       resolve(results);
     });
   });
