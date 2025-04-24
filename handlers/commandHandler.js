@@ -33,7 +33,7 @@ export const mostrarMenuPrincipal = async (bot, chatId, vendedor) => {
   console.log("Mostrando menú principal");
   try {
     const empresa = await getEmpresa(vendedor.codigoEmpresa);
-    const mensaje = getMainMenuMessage(empresa, vendedor);
+    const mensaje = await getMainMenuMessage(empresa, vendedor);
     const options = {
       parse_mode: "Markdown",
       reply_markup: KEYBOARD_LAYOUT,

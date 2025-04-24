@@ -14,7 +14,12 @@ export const getEmpresa = (codigoEmpresa) => {
     const query = `
       SELECT 
         codigo,
-        razonSocial
+        razonSocial,
+        imageURL,
+        textoInfo,
+        plan,
+        fechaAlta,
+        fechaVencimiento
       FROM empresa 
       WHERE codigo = ?
     `;
@@ -30,6 +35,11 @@ export const getEmpresa = (codigoEmpresa) => {
           codigo: codigoEmpresa,
           razonSocial: "Empresa no encontrada",
           nombreFantasia: "",
+          imageURL:
+            "https://res.cloudinary.com/drgs7xuag/image/upload/f_auto,q_auto/v1/recursos/edelecjhmeytkyc6ws14.png",
+          textoInfo: "",
+          plan: "Free",
+          fechaVencimiento: null,
         });
         return;
       }
