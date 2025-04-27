@@ -87,7 +87,15 @@ bot.on("message", async (msg) => {
   // Verificar si hay estado de conversación activo
   const state = getConversationState(chatId);
 
-  // Verificar primero si es una respuesta a cobros
+  // Verificar primero si es una respuesta a contacto
+  if (state && state.command === "contacto") {
+    console.log("Se detectó estado de contacto, procesando respuesta...");
+    const { handleContactoResponse } = await import("./commands/contacto.js");
+    const handled = handleContactoResponse(bot, msg);
+    if (handled) return;
+  }
+
+  // Verificar si es una respuesta a cobros
   if (state && state.command === "cobros") {
     console.log("Se detectó estado de cobros, procesando respuesta...");
     const handled = await handleCobrosResponse(bot, msg);

@@ -9,6 +9,7 @@ import {
   // actualizarPrecioXCodigo,
 } from "../commands/stock.js";
 import { handleProductosCallback } from "../commands/productos.js";
+import { handleContactoCallback } from "../commands/contacto.js";
 
 export const handleCallback = async (bot, callbackQuery, auth) => {
   const action = callbackQuery.data.split("_")[0];
@@ -17,6 +18,14 @@ export const handleCallback = async (bot, callbackQuery, auth) => {
 
   console.log("handleCallback - action:", action);
   console.log("handleCallback - callbackQuery.data:", callbackQuery.data);
+
+  // Comprobar primero si es un callback de contacto
+  if (callbackQuery.data.startsWith("contacto_")) {
+    console.log("Detectado callback de contacto:", callbackQuery.data);
+    const resultado = handleContactoCallback(bot, callbackQuery);
+    console.log("Resultado de handleContactoCallback:", resultado);
+    return resultado;
+  }
 
   // Responder al callback para quitar el "loading" del botón
   bot.answerCallbackQuery(callbackQuery.id);
