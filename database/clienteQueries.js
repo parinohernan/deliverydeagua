@@ -15,7 +15,8 @@ export const buscarClientesPorNombre = async (busqueda, empresaCodigo) => {
           c.apellido,
           c.direccion,
           c.telefono,
-          COALESCE(SUM(p.saldo), 0) as saldo
+          COALESCE(SUM(p.saldo), 0) as saldo,
+          IFNULL(c.retornables, 0) as retornables
           FROM clientes c
           LEFT JOIN pedidos p ON c.codigo = p.codigoCliente AND p.codigoEmpresa = ?
           WHERE 
@@ -27,7 +28,8 @@ export const buscarClientesPorNombre = async (busqueda, empresaCodigo) => {
           c.nombre,
           c.apellido,
           c.direccion,
-          c.telefono
+          c.telefono,
+          c.retornables
           HAVING saldo > 0
           ORDER BY 
           c.apellido, 
@@ -43,7 +45,8 @@ export const buscarClientesPorNombre = async (busqueda, empresaCodigo) => {
           c.apellido,
           c.direccion,
           c.telefono,
-          COALESCE(SUM(p.saldo), 0) as saldo
+          COALESCE(SUM(p.saldo), 0) as saldo,
+          IFNULL(c.retornables, 0) as retornables
         FROM clientes c
         LEFT JOIN pedidos p ON c.codigo = p.codigoCliente AND p.codigoEmpresa = ?
         WHERE c.codigoEmpresa = ?
@@ -52,7 +55,8 @@ export const buscarClientesPorNombre = async (busqueda, empresaCodigo) => {
           c.nombre,
           c.apellido,
           c.direccion,
-          c.telefono
+          c.telefono,
+          c.retornables
         HAVING saldo > 0
         ORDER BY 
           c.apellido, 
@@ -89,7 +93,8 @@ export const obtenerClientePorCodigo = async (codigo) => {
         c.apellido,
         c.direccion,
         c.telefono,
-        COALESCE(SUM(p.saldo), 0) as saldo
+        COALESCE(SUM(p.saldo), 0) as saldo,
+        IFNULL(c.retornables, 0) as retornables
       FROM clientes c
       LEFT JOIN pedidos p ON c.codigo = p.codigoCliente
       WHERE c.codigo = ?
@@ -98,7 +103,8 @@ export const obtenerClientePorCodigo = async (codigo) => {
         c.nombre,
         c.apellido,
         c.direccion,
-        c.telefono
+        c.telefono,
+        c.retornables
     `;
 
     connection.query(query, [codigo], (err, results) => {

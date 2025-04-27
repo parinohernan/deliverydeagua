@@ -82,7 +82,14 @@ export const handleCobrosResponse = async (bot, msg) => {
           let mensaje = "*Clientes encontrados con saldo pendiente:*\n\n";
           clientes.forEach((cliente) => {
             mensaje += `*${cliente.codigo}* - ${cliente.nombre} ${cliente.apellido}\n`;
-            mensaje += `💰 Saldo pendiente: $${cliente.saldo || 0}\n\n`;
+            mensaje += `💰 Saldo pendiente: $${cliente.saldo || 0}\n`;
+
+            // Mostrar información de retornables solo si hay alguno pendiente
+            if (cliente.retornables > 0) {
+              mensaje += `🧴 Retornables pendientes: ${cliente.retornables}\n`;
+            }
+
+            mensaje += "\n";
           });
           mensaje +=
             "\nIngresa el código del cliente seleccionado o /cancelar para cancelar:";
@@ -122,6 +129,9 @@ export const handleCobrosResponse = async (bot, msg) => {
 
         console.log("Cliente seleccionado:", clienteSeleccionado);
 
+        // Guardar la información del cliente seleccionado para usarla más tarde
+        state.data.clienteSeleccionado = clienteSeleccionado;
+
         try {
           const pedidosImpagos = await obtenerPedidosImpagosPorCliente(
             clienteSeleccionado.codigo,
@@ -131,15 +141,33 @@ export const handleCobrosResponse = async (bot, msg) => {
           console.log("Pedidos impagos encontrados:", pedidosImpagos);
 
           if (!pedidosImpagos || pedidosImpagos.length === 0) {
-            bot.sendMessage(
-              chatId,
-              "✅ Este cliente no tiene pedidos pendientes de pago."
-            );
+            // Mostrar mensaje actualizado que incluye los retornables aunque no tenga pedidos pendientes
+            let mensaje = `✅ *Cliente:* ${clienteSeleccionado.nombre} ${clienteSeleccionado.apellido}\n\n`;
+            mensaje += "Este cliente no tiene pedidos pendientes de pago.";
+
+            // Agregar información de retornables si corresponde
+            if (clienteSeleccionado.retornables > 0) {
+              mensaje += `\n\n🧴 *Retornables pendientes:* ${clienteSeleccionado.retornables}`;
+              mensaje +=
+                "\n\n*Nota:* Los retornables no se cobran monetariamente, se deben gestionar por separado.";
+            }
+
+            bot.sendMessage(chatId, mensaje, { parse_mode: "Markdown" });
             endConversation(chatId);
             return true;
           }
 
-          let mensajePedidos = "*Pedidos pendientes de pago:*\n\n";
+          let mensajePedidos = `*Cliente:* ${clienteSeleccionado.nombre} ${clienteSeleccionado.apellido}\n`;
+          mensajePedidos += `*Saldo total pendiente:* $${clienteSeleccionado.saldo}\n`;
+
+          // Agregar información de retornables si corresponde
+          if (clienteSeleccionado.retornables > 0) {
+            mensajePedidos += `*Retornables pendientes:* ${clienteSeleccionado.retornables}\n`;
+            mensajePedidos +=
+              "*Nota:* Los retornables no se cobran monetariamente, se deben gestionar por separado.\n";
+          }
+
+          mensajePedidos += "\n*Pedidos pendientes de pago:*\n\n";
           pedidosImpagos.forEach((pedido) => {
             const fechaFormateada = new Date(
               pedido.FechaPedido
@@ -198,11 +226,19 @@ export const handleCobrosResponse = async (bot, msg) => {
             0
           );
 
-          bot.sendMessage(
-            chatId,
-            `✅ *Cobro registrado exitosamente*\n\nPedidos pagados: ${pedidosValidos.length}\nTotal cobrado: $${totalCobrado}`,
-            { parse_mode: "Markdown" }
-          );
+          let mensajeConfirmacion = `✅ *Cobro registrado exitosamente*\n\nPedidos pagados: ${pedidosValidos.length}\nTotal cobrado: $${totalCobrado}`;
+
+          // Agregar recordatorio sobre retornables si el cliente tiene pendientes
+          const clienteSeleccionado = state.data.clienteSeleccionado;
+          if (clienteSeleccionado && clienteSeleccionado.retornables > 0) {
+            mensajeConfirmacion += `\n\n🧴 *Recordatorio:* El cliente tiene ${clienteSeleccionado.retornables} retornables pendientes.`;
+            mensajeConfirmacion +=
+              "\nLos retornables se deben gestionar por separado desde la opción de entrega de pedidos.";
+          }
+
+          bot.sendMessage(chatId, mensajeConfirmacion, {
+            parse_mode: "Markdown",
+          });
 
           endConversation(chatId);
           console.log("Conversación finalizada");
