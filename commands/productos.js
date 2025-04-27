@@ -137,28 +137,11 @@ export const handleProductosResponse = async (bot, msg) => {
           nextStep(chatId, 8);
           return true;
         } else if (texto === "5" || texto === "5️⃣") {
-          // En lugar de terminar la conversación y redirigir a stock,
-          // vamos a mostrar el stock actual y permitir modificarlo
-          const productos = await listarProductos(msg.vendedor.codigoEmpresa);
-          let mensaje = "Productos disponibles para actualizar stock:\n\n";
-          if (productos.length) {
-            productos.forEach((producto) => {
-              mensaje += `▫Cod:${producto.codigo}: ${producto.descripcion}-$${producto.precio}\n-${producto.stock}Uds\n`;
-            });
-            mensaje +=
-              "\nIngresa el código del producto para actualizar stock:";
-          } else {
-            mensaje += "No hay productos registrados.";
-          }
-          bot.sendMessage(chatId, mensaje, {
-            parse_mode: "Markdown",
-            reply_markup: {
-              keyboard: [["⏪ Atrás", "📱 Menu Principal"]],
-              resize_keyboard: true,
-              one_time_keyboard: false,
-            },
-          });
-          nextStep(chatId, 10);
+          // En lugar de implementar nuestra propia gestión de stock
+          // usamos la función stock del archivo stock.js
+          const { stock } = await import("./stock.js");
+          stock(bot, msg);
+          endConversation(chatId); // Terminamos la conversación actual para evitar conflictos
           return true;
         } else {
           bot.sendMessage(chatId, "Opción no válida. Intenta nuevamente.");
@@ -416,77 +399,6 @@ export const handleProductosResponse = async (bot, msg) => {
             },
           });
         }
-        return true;
-      case 10: // Actualizar stock
-        const codigoActualizar = parseInt(texto);
-        if (isNaN(codigoActualizar)) {
-          bot.sendMessage(chatId, "❌ Código inválido. Intenta nuevamente.", {
-            parse_mode: "Markdown",
-            reply_markup: {
-              keyboard: [["⏪ Atrás", "📱 Menu Principal"]],
-              resize_keyboard: true,
-              one_time_keyboard: false,
-            },
-          });
-          return true;
-        }
-        const productoActualizar = await listarProductos(
-          msg.vendedor.codigoEmpresa
-        ).then((productos) =>
-          productos.find((p) => p.codigo === codigoActualizar)
-        );
-        if (!productoActualizar) {
-          bot.sendMessage(chatId, "❌ Producto no encontrado.", {
-            parse_mode: "Markdown",
-            reply_markup: {
-              keyboard: [["⏪ Atrás", "📱 Menu Principal"]],
-              resize_keyboard: true,
-              one_time_keyboard: false,
-            },
-          });
-          return true;
-        }
-        bot.sendMessage(chatId, "Ingresa el nuevo stock del producto:", {
-          parse_mode: "Markdown",
-          reply_markup: {
-            keyboard: [["⏪ Atrás", "📱 Menu Principal"]],
-            resize_keyboard: true,
-            one_time_keyboard: false,
-          },
-        });
-        nextStep(chatId);
-        return true;
-      case 11: // Confirmar actualización de stock
-        const nuevoStockActualizar = parseInt(texto);
-        if (isNaN(nuevoStockActualizar) || nuevoStockActualizar < 0) {
-          bot.sendMessage(
-            chatId,
-            "❌ Stock inválido. Por favor, ingresa un número mayor o igual a 0.",
-            {
-              parse_mode: "Markdown",
-              reply_markup: {
-                keyboard: [["⏪ Atrás", "📱 Menu Principal"]],
-                resize_keyboard: true,
-                one_time_keyboard: false,
-              },
-            }
-          );
-          return true;
-        }
-        productoActualizar.stock = nuevoStockActualizar;
-        await modificarProducto(productoActualizar);
-        bot.sendMessage(
-          chatId,
-          `✅ Stock del producto "${productoActualizar.descripcion}" actualizado exitosamente a ${nuevoStockActualizar} unidades.`,
-          {
-            parse_mode: "Markdown",
-            reply_markup: {
-              keyboard: [["⏪ Atrás", "📱 Menu Principal"]],
-              resize_keyboard: true,
-              one_time_keyboard: false,
-            },
-          }
-        );
         return true;
       default: // Manejar caso por defecto
         bot.sendMessage(chatId, "Opción no válida. Intenta nuevamente.", {

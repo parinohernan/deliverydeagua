@@ -266,7 +266,7 @@ export const procesarCantidadStock = async (
   const chatId = msg.chat.id;
   const query = `
     UPDATE productos 
-    SET stock = stock ${signo} ? 
+    SET stock = stock ${signo} ?, esRetornable = 0
     WHERE codigo = ? AND codigoEmpresa = ?
     AND (${signo === "-" ? "stock >= ?" : "1=1"})
   `;
