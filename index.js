@@ -95,6 +95,16 @@ bot.on("message", async (msg) => {
     if (handled) return;
   }
 
+  // Verificar si es una respuesta a retornables
+  if (state && state.command === "retornables") {
+    console.log("Se detectó estado de retornables, procesando respuesta...");
+    const { handleRetornablesResponse } = await import(
+      "./commands/listarPedidos.js"
+    );
+    const handled = await handleRetornablesResponse(bot, msg);
+    if (handled) return;
+  }
+
   // Verificar si es una respuesta a cobros
   if (state && state.command === "cobros") {
     console.log("Se detectó estado de cobros, procesando respuesta...");
@@ -111,6 +121,24 @@ bot.on("message", async (msg) => {
   // Verificar si es el comando cancelar
   if (text === "/cancelar") {
     if (state) {
+      // Manejar cancelación específica según el tipo de conversación
+      if (state.command === "retornables") {
+        console.log("Cancelando proceso de retornables");
+        bot.sendMessage(
+          chatId,
+          "❌ Proceso de retornables cancelado. Continuando con la entrega..."
+        );
+
+        // Si hay una promesa pendiente, resolverla para continuar el flujo
+        if (state.resolve) {
+          state.resolve({
+            cantidadDevuelta: 0,
+            saldoFinal:
+              state.data.saldoRetornables + state.data.totalRetornables,
+          });
+        }
+      }
+
       endConversation(chatId);
     }
     handleCommand(bot, msg);

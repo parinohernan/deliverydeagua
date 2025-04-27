@@ -8,6 +8,8 @@
 4. [Cobros](#cobros)
 5. [Gestión de Clientes](#gestión-de-clientes)
 6. [Reportes y Resúmenes](#reportes-y-resúmenes)
+7. [Listado de Pedidos](#listado-de-pedidos)
+8. [Contacto con Soporte](#contacto-con-soporte)
 
 ## Introducción
 
@@ -127,3 +129,104 @@ Puede cancelar el proceso de carga de pedido en cualquier momento:
 ## Reportes y Resúmenes
 
 [Contenido pendiente]
+
+## Listado de Pedidos
+
+El módulo de Listado de Pedidos le permite ver, gestionar y dar seguimiento a todos los pedidos registrados en el sistema.
+
+### Acceder al Listado de Pedidos
+
+Para acceder al listado de pedidos, puede:
+
+- Escribir el comando `/listarpedidos`
+- O presionar el botón "📋 Ver Pedidos" en el menú principal
+
+### Visualización de Pedidos
+
+Al acceder al listado, verá los pedidos más recientes con la siguiente información:
+
+- Número de pedido
+- Nombre del cliente
+- Fecha de creación
+- Estado del pedido (pendiente, entregado, etc.)
+- Monto total
+
+### Acciones Disponibles para cada Pedido
+
+Para cada pedido en la lista, tendrá disponibles varias acciones:
+
+- **Ver Detalles**: Muestra información completa del pedido, incluyendo todos los productos, cantidades y precios.
+- **Marcar como Entregado**: Cambia el estado del pedido a "Entregado".
+- **Registrar Pago**: Le permite registrar un pago total o parcial para el pedido.
+- **Programar Entrega**: Permite asignar o modificar la fecha y hora de entrega programada.
+- **Asignar Zona**: Permite asignar o cambiar la zona de reparto del pedido.
+- **Anular Pedido**: Cancela el pedido y lo marca como anulado.
+
+### Filtrar Pedidos
+
+Puede filtrar los pedidos mostrados según diferentes criterios:
+
+- **Por Estado**: Ver solo pedidos pendientes, entregados, anulados, etc.
+- **Por Fecha**: Ver pedidos de un rango de fechas específico.
+- **Por Cliente**: Ver pedidos de un cliente en particular.
+- **Por Zona**: Ver pedidos asignados a una zona de reparto específica.
+
+### Reportes de Pedidos
+
+Desde la sección de listado de pedidos también puede acceder a reportes rápidos como:
+
+- Resumen de pedidos del día
+- Pedidos pendientes de entrega
+- Pedidos programados para una fecha específica
+
+### Consejos Útiles
+
+- Utilice la función de búsqueda por cliente cuando necesite encontrar rápidamente los pedidos de un cliente específico.
+- Revise regularmente los pedidos pendientes para asegurarse de que todas las entregas se realicen a tiempo.
+- Verifique los pedidos programados para el día siguiente al finalizar su jornada.
+
+## Contacto con Soporte
+
+La función de Contacto le permite comunicarse directamente con el equipo de soporte técnico para resolver dudas, reportar problemas o solicitar información.
+
+### Iniciar un Contacto
+
+Para iniciar un contacto con soporte, puede:
+
+- Escribir el comando `/contacto`
+- O presionar el botón "📞 Contacto" en el menú principal
+
+### Proceso de Envío de Consulta
+
+El proceso de contacto con soporte consta de los siguientes pasos:
+
+1. **Escribir el Motivo**: Después de iniciar el contacto, el sistema le solicitará que indique el motivo de su consulta. Describa claramente y con detalle su pregunta o el problema que está experimentando.
+
+2. **Revisar y Confirmar**: El sistema le mostrará un resumen de su consulta y le pedirá confirmación antes de enviarla. En esta etapa puede:
+
+   - Seleccionar "✅ Enviar" para proceder con el envío
+   - Seleccionar "❌ Cancelar" para cancelar el proceso
+
+3. **Confirmación de Envío**: Después de enviar su consulta, recibirá un mensaje confirmando que ha sido enviada al equipo de soporte.
+
+### Respuestas del Soporte
+
+Cuando el equipo de soporte responda a su consulta:
+
+- Recibirá un mensaje directo del bot con la respuesta
+- La respuesta incluirá información o instrucciones para resolver su consulta
+
+### Recomendaciones para Contactar al Soporte
+
+Para obtener una respuesta más rápida y efectiva:
+
+- **Sea específico**: Describa claramente el problema, incluyendo cuándo y cómo ocurrió.
+- **Proporcione detalles**: Mencione mensajes de error, comportamientos inesperados o cualquier otra información relevante.
+- **Indique pasos**: Si reporta un problema, detalle los pasos que siguió antes de que ocurriera.
+- **Incluya ejemplos**: Si es posible, proporcione ejemplos concretos de la situación.
+
+### Horario de Atención
+
+El equipo de soporte revisa y responde las consultas de lunes a viernes, de 9:00 a 18:00 hrs. Las consultas enviadas fuera de este horario serán atendidas el siguiente día hábil.
+
+> **Nota**: Para situaciones urgentes que requieran atención inmediata, se recomienda contactar directamente a su representante de cuenta por los canales tradicionales (teléfono o email).

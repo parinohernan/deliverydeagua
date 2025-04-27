@@ -12,6 +12,13 @@ import {
   asignarFechaProgramada,
   generarMensajeAyudaFecha,
 } from "../utils/fechaProgramadaUtils.js";
+import {
+  startConversation,
+  getConversationState,
+  nextStep,
+  endConversation,
+  updateConversationState,
+} from "../handlers/conversationHandler.js";
 
 export const listarPedidos = async (bot, msg) => {
   const chatId = msg.chat.id;
@@ -533,6 +540,391 @@ const actualizarStockPedidoYSaldo = async (
   });
 };
 
+// Función para verificar si el pedido tiene productos retornables
+const verificarProductosRetornables = async (pedidoId) => {
+  console.log("Verificando productos retornables en pedido:", pedidoId);
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT 
+        pi.codigoProducto, 
+        pi.cantidad, 
+        p.descripcion, 
+        p.esRetornable 
+      FROM pedidositems pi
+      JOIN productos p ON pi.codigoProducto = p.codigo
+      WHERE pi.codigoPedido = ? AND p.esRetornable = 1
+    `;
+
+    connection.query(query, [pedidoId], (err, results) => {
+      if (err) {
+        console.error("Error al verificar productos retornables:", err);
+        reject(err);
+        return;
+      }
+
+      if (results.length === 0) {
+        // No hay productos retornables en este pedido
+        resolve({
+          hayRetornables: false,
+          productos: [],
+          totalRetornables: 0,
+        });
+      } else {
+        // Calcular total de envases retornables
+        const totalRetornables = results.reduce(
+          (total, producto) => total + producto.cantidad,
+          0
+        );
+
+        resolve({
+          hayRetornables: true,
+          productos: results,
+          totalRetornables,
+        });
+      }
+    });
+  });
+};
+
+// Obtener saldo de retornables del cliente
+const obtenerSaldoRetornablesCliente = async (clienteId) => {
+  console.log("Obteniendo saldo de retornables del cliente:", clienteId);
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT retornables FROM clientes WHERE codigo = ?
+    `;
+
+    connection.query(query, [clienteId], (err, results) => {
+      if (err) {
+        console.error("Error al obtener saldo de retornables:", err);
+        reject(err);
+        return;
+      }
+
+      if (results.length === 0) {
+        reject(new Error("Cliente no encontrado"));
+        return;
+      }
+
+      // El saldo puede ser null en la base de datos
+      const saldoActual = results[0].retornables || 0;
+      resolve(saldoActual);
+    });
+  });
+};
+
+// Actualizar saldo de retornables del cliente
+const actualizarSaldoRetornables = async (
+  clienteId,
+  nuevosRetornables,
+  retornadosAhora
+) => {
+  console.log("Actualizando saldo de retornables:", {
+    clienteId,
+    nuevosRetornables,
+    retornadosAhora,
+  });
+
+  return new Promise((resolve, reject) => {
+    // Usamos IFNULL para manejar el caso donde retornables es NULL
+    const query = `
+      UPDATE clientes 
+      SET retornables = IFNULL(retornables, 0) + ? - ? 
+      WHERE codigo = ?
+    `;
+
+    connection.query(
+      query,
+      [nuevosRetornables, retornadosAhora, clienteId],
+      (err, result) => {
+        if (err) {
+          console.error("Error al actualizar saldo de retornables:", err);
+          reject(err);
+          return;
+        }
+
+        // Verificar si la actualización afectó alguna fila
+        if (result.affectedRows === 0) {
+          console.error(
+            "No se actualizó ningún registro. Cliente no encontrado:",
+            clienteId
+          );
+          reject(new Error("Cliente no encontrado"));
+          return;
+        }
+
+        // Consultar el nuevo valor para asegurarnos de que se actualizó correctamente
+        connection.query(
+          "SELECT retornables FROM clientes WHERE codigo = ?",
+          [clienteId],
+          (err, results) => {
+            if (err) {
+              console.error("Error al verificar actualización:", err);
+              // Aún así resolvemos porque la actualización puede haber sido exitosa
+              resolve(result);
+              return;
+            }
+
+            if (results.length > 0) {
+              console.log(
+                `Saldo de retornables actualizado a: ${results[0].retornables}`
+              );
+            }
+
+            resolve(result);
+          }
+        );
+      }
+    );
+  });
+};
+
+// Solicitar cantidad de retornables devueltos
+const solicitarRetornablesDevueltos = async (
+  bot,
+  chatId,
+  pedidoId,
+  clienteData,
+  infoRetornables
+) => {
+  const { cliente, saldoRetornables } = clienteData;
+  const { totalRetornables } = infoRetornables;
+
+  // Calcular nuevo saldo si no devuelve ninguno
+  const nuevoSaldo = saldoRetornables + totalRetornables;
+
+  // Iniciar una conversación para gestionar retornables
+  startConversation(chatId, "retornables");
+
+  // Guardar datos importantes en el estado de la conversación
+  const state = getConversationState(chatId);
+  state.data = {
+    pedidoId,
+    cliente,
+    saldoRetornables,
+    totalRetornables,
+    nuevoSaldo,
+  };
+  updateConversationState(chatId, state);
+
+  const mensaje = `
+🧾 *Envases Retornables*
+
+El pedido contiene ${totalRetornables} envases retornables.
+El cliente ${cliente.nombre} ${cliente.apellido} tiene un saldo de ${saldoRetornables} retornables.
+
+👉 *Si no devuelve ninguno, deberá ${nuevoSaldo} retornables.*
+
+¿Cuántos envases retornables devolvió el cliente?
+*(Envía un número, o 0 si no devolvió ninguno)*
+`;
+
+  // Enviar mensaje sin esperar respuesta directa
+  await bot.sendMessage(chatId, mensaje, { parse_mode: "Markdown" });
+
+  // Retornar una promesa que se resolverá más tarde cuando
+  // el usuario responda a través del handleRetornablesResponse
+  return new Promise((resolve) => {
+    // Guardar la función resolve en el estado para usarla después
+    state.resolve = resolve;
+    updateConversationState(chatId, state);
+  });
+};
+
+// Manejador de respuestas para retornables
+export const handleRetornablesResponse = async (bot, msg) => {
+  const chatId = msg.chat.id;
+  const state = getConversationState(chatId);
+
+  // Verificar si hay una conversación activa de retornables
+  if (!state || state.command !== "retornables") {
+    return false; // No es una conversación de retornables
+  }
+
+  console.log(
+    `[handleRetornablesResponse] Procesando respuesta: "${msg.text}"`
+  );
+
+  // Validar que la respuesta sea un número válido
+  const cantidadDevuelta = parseInt(msg.text);
+  if (isNaN(cantidadDevuelta) || cantidadDevuelta < 0) {
+    bot.sendMessage(
+      chatId,
+      "❌ Por favor, ingresa un número válido mayor o igual a 0."
+    );
+    return true; // Indicar que se manejó la respuesta aunque sea inválida
+  }
+
+  // Extraer datos del estado
+  const { cliente, saldoRetornables, totalRetornables, resolve } = state.data;
+
+  // Calcular saldo final
+  const saldoFinal = saldoRetornables + totalRetornables - cantidadDevuelta;
+
+  // Confirmar la operación
+  const mensajeConfirmacion = `
+📊 *Resumen de retornables*
+
+Retornables en el pedido: ${totalRetornables}
+Retornables devueltos: ${cantidadDevuelta}
+Saldo anterior del cliente: ${saldoRetornables}
+*Nuevo saldo de retornables: ${saldoFinal}*
+`;
+
+  await bot.sendMessage(chatId, mensajeConfirmacion, {
+    parse_mode: "Markdown",
+  });
+
+  // Actualizar el saldo en la base de datos
+  try {
+    await actualizarSaldoRetornables(
+      cliente.id,
+      totalRetornables,
+      cantidadDevuelta
+    );
+    console.log("Saldo de retornables actualizado correctamente");
+  } catch (error) {
+    console.error("Error al actualizar saldo de retornables:", error);
+    bot.sendMessage(chatId, "❌ Error al actualizar saldo de retornables.");
+  }
+
+  // Resolver la promesa para continuar con el flujo
+  if (resolve) {
+    resolve({
+      cantidadDevuelta,
+      saldoFinal,
+    });
+  }
+
+  // Terminar la conversación
+  endConversation(chatId);
+  return true;
+};
+
+// Obtener datos del cliente
+const obtenerDatosCliente = async (pedidoId) => {
+  console.log("Obteniendo datos del cliente para pedido:", pedidoId);
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT 
+        c.codigo as clienteId,
+        c.nombre,
+        c.apellido,
+        IFNULL(c.retornables, 0) as retornables
+      FROM pedidos p
+      JOIN clientes c ON p.codigoCliente = c.codigo
+      WHERE p.codigo = ?
+    `;
+
+    connection.query(query, [pedidoId], (err, results) => {
+      if (err) {
+        console.error("Error al obtener datos del cliente:", err);
+        reject(err);
+        return;
+      }
+
+      if (results.length === 0) {
+        console.error("Pedido no encontrado:", pedidoId);
+        reject(new Error("Pedido no encontrado"));
+        return;
+      }
+
+      console.log("Datos del cliente obtenidos:", results[0]);
+
+      const cliente = {
+        id: results[0].clienteId,
+        nombre: results[0].nombre,
+        apellido: results[0].apellido,
+      };
+
+      const saldoRetornables = results[0].retornables;
+
+      resolve({
+        cliente,
+        saldoRetornables,
+      });
+    });
+  });
+};
+
+// Proceso completo de gestión de retornables
+const gestionarRetornables = async (bot, chatId, pedidoId) => {
+  try {
+    console.log("Iniciando gestión de retornables para pedido:", pedidoId);
+
+    // 1. Verificar si el pedido tiene productos retornables
+    const infoRetornables = await verificarProductosRetornables(pedidoId);
+
+    if (!infoRetornables.hayRetornables) {
+      console.log("El pedido no tiene productos retornables, continuando...");
+      return;
+    }
+
+    console.log(
+      "Productos retornables encontrados:",
+      infoRetornables.totalRetornables
+    );
+
+    // 2. Obtener datos del cliente y su saldo de retornables
+    const clienteData = await obtenerDatosCliente(pedidoId);
+    console.log("Datos del cliente obtenidos:", {
+      clienteId: clienteData.cliente.id,
+      nombre: `${clienteData.cliente.nombre} ${clienteData.cliente.apellido}`,
+      saldoRetornables: clienteData.saldoRetornables,
+    });
+
+    // 3. Solicitar al usuario cuántos retornables devolvió el cliente
+    // y esperar la respuesta (gestionada por handleRetornablesResponse)
+    console.log("Solicitando información de retornables devueltos...");
+    const respuestaRetornables = await solicitarRetornablesDevueltos(
+      bot,
+      chatId,
+      pedidoId,
+      clienteData,
+      infoRetornables
+    );
+
+    // Esta parte solo se ejecuta si el usuario no usó handleRetornablesResponse
+    // normalmente ese handler actualiza el saldo directamente
+    if (
+      respuestaRetornables &&
+      respuestaRetornables.cantidadDevuelta !== undefined
+    ) {
+      console.log(
+        "Procesando respuesta manual de retornables:",
+        respuestaRetornables
+      );
+
+      // 4. Actualizar el saldo de retornables del cliente
+      try {
+        await actualizarSaldoRetornables(
+          clienteData.cliente.id,
+          infoRetornables.totalRetornables,
+          respuestaRetornables.cantidadDevuelta
+        );
+        console.log("Saldo de retornables actualizado manualmente con éxito");
+      } catch (error) {
+        console.error(
+          "Error al actualizar saldo de retornables manualmente:",
+          error
+        );
+        bot.sendMessage(
+          chatId,
+          "⚠️ Advertencia: No se pudo actualizar el saldo de retornables. Por favor, verifique manualmente."
+        );
+      }
+    }
+
+    console.log("Proceso de retornables completado exitosamente");
+  } catch (error) {
+    console.error("Error en el proceso de gestión de retornables:", error);
+    bot.sendMessage(
+      chatId,
+      "❌ Error al procesar retornables. Continuando con la entrega."
+    );
+  }
+};
+
 export const handlePedidoCallback = async (bot, callbackQuery) => {
   const chatId = callbackQuery.message.chat.id;
   const [action, ...params] = callbackQuery.data.split("_");
@@ -634,6 +1026,11 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
         parseInt(aplicaSaldo)
       );
       console.log("Actualización completada");
+
+      // Procesar retornables antes de finalizar la entrega
+      console.log("Iniciando gestión de retornables...");
+      await gestionarRetornables(bot, chatId, pedidoId);
+      console.log("Gestión de retornables completada");
 
       // Respondemos al callback
       await bot.answerCallbackQuery(callbackQuery.id, {
