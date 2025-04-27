@@ -29,7 +29,7 @@ export const modificarProducto = async (producto) => {
   return new Promise((resolve, reject) => {
     const query = `
       UPDATE productos
-      SET descripcion = ?, precio = ?, stock = ?, esRetornable = 0
+      SET descripcion = ?, precio = ?, stock = ?
       WHERE codigo = ?
     `;
     connection.query(

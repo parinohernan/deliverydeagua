@@ -28,10 +28,16 @@ export const cargarPedido = async (bot, msg) => {
   const chatId = msg.chat.id;
 
   try {
+    console.log(
+      `[cargarPedido] Iniciando carga de pedido para chatId: ${chatId}`
+    );
+
     // Verificar si ya existe una conversación y terminarla
     const existingState = getConversationState(chatId);
     if (existingState) {
-      console.log(`Terminando conversación existente para chatId: ${chatId}`);
+      console.log(
+        `[cargarPedido] Terminando conversación existente para chatId: ${chatId}, command: ${existingState.command}, step: ${existingState.step}`
+      );
       deleteConversationState(chatId);
     }
 
@@ -40,8 +46,15 @@ export const cargarPedido = async (bot, msg) => {
     const state = getConversationState(chatId);
 
     if (!state) {
+      console.error(
+        `[cargarPedido] Error crítico: No se pudo iniciar la conversación para chatId: ${chatId}`
+      );
       throw new Error("No se pudo iniciar la conversación");
     }
+
+    console.log(
+      `[cargarPedido] Nueva conversación iniciada: command=${state.command}, step=${state.step}`
+    );
 
     // Inicializar datos básicos
     state.data = {
@@ -51,8 +64,15 @@ export const cargarPedido = async (bot, msg) => {
       codigoEmpresa: msg.vendedor?.codigoEmpresa,
     };
 
+    console.log(
+      `[cargarPedido] Datos inicializados: vendedor=${state.data.codigoVendedor}, empresa=${state.data.codigoEmpresa}`
+    );
+
     // Verificar que el vendedor tenga los datos necesarios
     if (!state.data.codigoVendedor || !state.data.codigoEmpresa) {
+      console.error(
+        `[cargarPedido] Error: Datos de vendedor incompletos. vendedor=${msg.vendedor}`
+      );
       throw new Error(
         "Datos de vendedor incompletos. Por favor, autentíquese nuevamente."
       );
@@ -62,13 +82,13 @@ export const cargarPedido = async (bot, msg) => {
     try {
       const empresa = await getEmpresa(state.data.codigoEmpresa);
       state.data.empresa = empresa;
-      console.log("Datos de empresa cargados:", {
+      console.log(`[cargarPedido] Datos de empresa cargados:`, {
         codigoEmpresa: state.data.codigoEmpresa,
         usaEntregaProgramada: empresa.usaEntregaProgramada,
         usaRepartoPorZona: empresa.usaRepartoPorZona,
       });
     } catch (error) {
-      console.error("Error al cargar datos de empresa:", error);
+      console.error(`[cargarPedido] Error al cargar datos de empresa:`, error);
       // Continuar con valores por defecto
       state.data.empresa = {
         usaEntregaProgramada: 0,
@@ -76,9 +96,10 @@ export const cargarPedido = async (bot, msg) => {
       };
     }
 
-    bot.sendMessage(chatId, PEDIDO_MESSAGES.SOLICITAR_CLIENTE);
+    console.log(`[cargarPedido] Solicitando cliente para chatId: ${chatId}`);
+    bot.sendMessage(chatId, "Ingresa el nombre del cliente para buscarlo:");
   } catch (error) {
-    console.error("Error al iniciar carga de pedido:", error);
+    console.error(`[cargarPedido] Error al iniciar carga de pedido:`, error);
     bot.sendMessage(chatId, `Error: ${error.message}`);
     // Asegurarse de limpiar estado en caso de error
     deleteConversationState(chatId);
@@ -326,21 +347,29 @@ export const handleCargarPedidoResponse = async (bot, msg) => {
   // Verificar si state existe
   if (!state) {
     console.log(
-      `No se encontró estado para chatId: ${chatId}. Iniciando nuevo pedido.`
+      `[handleCargarPedidoResponse] No se encontró estado para chatId: ${chatId}. Iniciando nuevo pedido.`
     );
     // Si no hay estado activo, reiniciar el proceso
     await cargarPedido(bot, msg);
-    return;
+    return true; // Importante retornar true para indicar que se manejó el mensaje
   }
 
   console.log(
-    `[handleCargarPedidoResponse] chatId: ${chatId}, step: ${state.step}, texto: ${texto}`
+    `[handleCargarPedidoResponse] chatId: ${chatId}, step: ${state.step}, command: ${state.command}, texto: "${texto}"`
   );
+
+  // Verificar que estamos en la conversación correcta
+  if (state.command !== "cargarPedido") {
+    console.log(
+      `[handleCargarPedidoResponse] Command incorrecto: ${state.command}, esperaba "cargarPedido". Ignorando.`
+    );
+    return false;
+  }
 
   // Verificar si se quiere cancelar
   if (texto === "❌ Cancelar") {
     await cancelarPedido(bot, chatId);
-    return;
+    return true;
   }
 
   // Verificar si se quiere finalizar desde la búsqueda
@@ -351,7 +380,7 @@ export const handleCargarPedidoResponse = async (bot, msg) => {
       action: "pedido",
       chatId: chatId,
     });
-    return;
+    return true;
   }
 
   // Solo procesar entrega programada si estamos en el paso 4
@@ -360,20 +389,20 @@ export const handleCargarPedidoResponse = async (bot, msg) => {
     if (texto === "⏭️ Continuar sin programar entrega") {
       console.log("Usuario eligió continuar sin programar entrega");
       finalizarPedido(bot, chatId, state, null);
-      return;
+      return true;
     }
 
     // Verificar formato de fecha y hora usando la función utilitaria
     const fechaValida = validarFormatoFechaHora(texto);
     if (!fechaValida) {
       bot.sendMessage(chatId, PEDIDO_MESSAGES.FORMATO_FECHA_INCORRECTO);
-      return;
+      return true;
     }
 
     // Todo correcto, finalizar pedido con fecha programada
     console.log(`Finalizando pedido con fecha programada: ${fechaValida}`);
     finalizarPedido(bot, chatId, state, fechaValida);
-    return;
+    return true;
   }
 
   // Procesar zona de reparto si estamos en el paso 5
@@ -428,21 +457,30 @@ export const handleCargarPedidoResponse = async (bot, msg) => {
 
   // Si estamos en paso 0, procesar búsqueda de cliente
   if (state.step === 0) {
+    console.log(
+      `[handleCargarPedidoResponse] Paso 0: Buscando cliente con texto: "${texto}"`
+    );
     buscarClientes(bot, chatId, texto, state.data.codigoEmpresa);
-    return;
+    return true;
   }
 
   // Si estamos en paso 3 y en búsqueda de productos
   if (state.step === 3 && state.data.busquedaProductos) {
     buscarProductos(bot, chatId, texto, state);
-    return;
+    return true;
   }
 
   // Si estamos en paso 2, procesando cantidad de producto
   if (state.step === 2) {
     await procesarCantidadProducto(bot, chatId, texto, state);
-    return;
+    return true;
   }
+
+  // Si llegamos aquí, no se manejó el mensaje
+  console.log(
+    `[handleCargarPedidoResponse] Mensaje no manejado. Step: ${state.step}, texto: "${texto}"`
+  );
+  return false;
 };
 
 export const handlePedidoCallback = async (bot, query) => {
@@ -1013,35 +1051,64 @@ export const cancelarPedido = async (bot, chatId) => {
 
 // Función para buscar clientes
 const buscarClientes = (bot, chatId, texto, codigoEmpresa) => {
-  // Búsqueda por nombre/apellido
-  connection.query(
-    "SELECT codigo, nombre, apellido FROM clientes WHERE (nombre LIKE ? OR apellido LIKE ?) AND codigoEmpresa = ? LIMIT 5",
-    [`%${texto}%`, `%${texto}%`, codigoEmpresa],
-    (err, results) => {
-      if (err) {
-        bot.sendMessage(chatId, PEDIDO_MESSAGES.ERROR_BUSQUEDA(err));
-        return;
-      }
-
-      if (results.length === 0) {
-        bot.sendMessage(chatId, PEDIDO_MESSAGES.NO_CLIENTES);
-        return;
-      }
-
-      const options = {
-        reply_markup: {
-          inline_keyboard: results.map((cliente) => [
-            {
-              text: `${cliente.codigo} - ${cliente.nombre} ${cliente.apellido}`,
-              callback_data: `selectCliente_${cliente.codigo}`,
-            },
-          ]),
-        },
-      };
-
-      bot.sendMessage(chatId, PEDIDO_MESSAGES.SELECCIONAR_CLIENTE, options);
-    }
+  console.log(
+    `[buscarClientes] Buscando cliente con texto: "${texto}", codigoEmpresa: ${codigoEmpresa}`
   );
+
+  // Validar que tengamos un código de empresa válido
+  if (!codigoEmpresa) {
+    console.error(
+      `[buscarClientes] Error: codigoEmpresa es inválido: ${codigoEmpresa}`
+    );
+    bot.sendMessage(
+      chatId,
+      "❌ Error al buscar clientes: datos de empresa inválidos."
+    );
+    return;
+  }
+
+  // Búsqueda por nombre/apellido
+  const query =
+    "SELECT codigo, nombre, apellido FROM clientes WHERE (nombre LIKE ? OR apellido LIKE ?) AND codigoEmpresa = ? LIMIT 5";
+  const params = [`%${texto}%`, `%${texto}%`, codigoEmpresa];
+
+  console.log(
+    `[buscarClientes] Ejecutando query: ${query} con params:`,
+    JSON.stringify(params)
+  );
+
+  connection.query(query, params, (err, results) => {
+    if (err) {
+      console.error(`[buscarClientes] Error en consulta SQL:`, err);
+      bot.sendMessage(chatId, `❌ Error al buscar clientes: ${err.message}`);
+      return;
+    }
+
+    console.log(
+      `[buscarClientes] Resultados encontrados: ${results ? results.length : 0}`
+    );
+
+    if (!results || results.length === 0) {
+      bot.sendMessage(
+        chatId,
+        "No se encontraron clientes con ese nombre. Intenta con otro nombre."
+      );
+      return;
+    }
+
+    const options = {
+      reply_markup: {
+        inline_keyboard: results.map((cliente) => [
+          {
+            text: `${cliente.codigo} - ${cliente.nombre} ${cliente.apellido}`,
+            callback_data: `selectCliente_${cliente.codigo}`,
+          },
+        ]),
+      },
+    };
+
+    bot.sendMessage(chatId, "Selecciona un cliente:", options);
+  });
 };
 
 // Función para procesar la cantidad de producto

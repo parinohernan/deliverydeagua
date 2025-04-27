@@ -122,6 +122,26 @@ bot.on("message", async (msg) => {
     if (handled) return;
   }
 
+  // Verificar si es una respuesta a cargar pedido
+  if (state && state.command === "cargarPedido") {
+    console.log("Se detectó estado de cargar pedido, procesando respuesta...");
+    const { handleCargarPedidoResponse } = await import(
+      "./commands/cargarPedido.js"
+    );
+    const handled = await handleCargarPedidoResponse(bot, msg);
+    if (handled) return;
+  }
+
+  // Verificar si es una respuesta a crear cliente
+  if (state && state.command === "crearCliente") {
+    console.log("Se detectó estado de crear cliente, procesando respuesta...");
+    const { handleCrearClienteResponse } = await import(
+      "./commands/crearCliente.js"
+    );
+    const handled = handleCrearClienteResponse(bot, msg);
+    if (handled) return;
+  }
+
   // // Verificar si hay una operación pendiente
   // if (operacionesPendientes[chatId]) {
   //   procesarEntrada(bot, msg);
