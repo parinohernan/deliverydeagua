@@ -42,6 +42,12 @@ export const handleCallback = async (bot, callbackQuery, auth) => {
     confirmarAnular: () => handleListarPedidosCallback(bot, callbackQuery),
     cancelarAnular: () => handleListarPedidosCallback(bot, callbackQuery),
     calendar: () => handleResumenCallback(bot, callbackQuery),
+    // Nuevos handlers para zonas y programación
+    zona: () => handleListarPedidosCallback(bot, callbackQuery),
+    asignarZona: () => handleListarPedidosCallback(bot, callbackQuery),
+    nuevaZona: () => handleListarPedidosCallback(bot, callbackQuery),
+    sinZona: () => handleListarPedidosCallback(bot, callbackQuery),
+    programar: () => handleListarPedidosCallback(bot, callbackQuery),
   };
 
   // Si es un callback de productos, manejarlo directamente

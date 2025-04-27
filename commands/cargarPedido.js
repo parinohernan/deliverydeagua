@@ -14,6 +14,10 @@ import {
   PEDIDO_MESSAGES,
   KEYBOARD_LAYOUT,
 } from "../constants/messages.js";
+import {
+  obtenerZonasExistentes,
+  crearTecladoZonas,
+} from "../utils/zonaUtils.js";
 
 export const cargarPedido = async (bot, msg) => {
   const chatId = msg.chat.id;
@@ -1169,63 +1173,20 @@ const solicitarZonaReparto = async (bot, chatId, state) => {
       step: 5,
     });
 
-    // Obtener zonas existentes (si las hubiera)
-    const query = `
-      SELECT DISTINCT zona 
-      FROM pedidos 
-      WHERE codigoEmpresa = ? 
-      AND zona IS NOT NULL 
-      AND zona <> ''
-      ORDER BY zona
-      LIMIT 10
-    `;
+    // Obtener zonas existentes usando la función utilitaria
+    const zonas = await obtenerZonasExistentes(state.data.codigoEmpresa);
+    console.log(`Zonas obtenidas: ${zonas.length}`);
 
-    connection.query(
-      query,
-      [state.data.codigoEmpresa],
-      async (err, results) => {
-        try {
-          let keyboard = [["⏭️ Continuar sin asignar zona"], ["❌ Cancelar"]];
+    // Crear teclado personalizado con las zonas usando la función utilitaria
+    const customKeyboard = crearTecladoZonas(zonas);
 
-          // Si hay zonas existentes, agregarlas al teclado
-          if (!err && results.length > 0) {
-            const zonasRows = results.reduce((acc, row, index) => {
-              // Agrupar zonas de 2 en 2 en cada fila
-              if (index % 2 === 0) {
-                acc.push([row.zona]);
-              } else {
-                acc[acc.length - 1].push(row.zona);
-              }
-              return acc;
-            }, []);
+    await bot.sendMessage(chatId, PEDIDO_MESSAGES.SOLICITAR_ZONA, {
+      ...customKeyboard,
+      parse_mode: "Markdown",
+    });
 
-            keyboard = [...zonasRows, ...keyboard];
-          }
-
-          const customKeyboard = {
-            reply_markup: {
-              keyboard: keyboard,
-              resize_keyboard: true,
-              one_time_keyboard: true,
-            },
-          };
-
-          await bot.sendMessage(chatId, PEDIDO_MESSAGES.SOLICITAR_ZONA, {
-            ...customKeyboard,
-            parse_mode: "Markdown",
-          });
-
-          console.log(
-            `[solicitarZonaReparto] Mensaje enviado correctamente a chatId: ${chatId}`
-          );
-        } catch (error) {
-          console.error(
-            `[solicitarZonaReparto] Error al procesar zonas:`,
-            error
-          );
-          bot.sendMessage(chatId, PEDIDO_MESSAGES.ERROR_BUSQUEDA(error));
-        }
-      }
+    console.log(
+      `[solicitarZonaReparto] Mensaje enviado correctamente a chatId: ${chatId}`
     );
   } catch (error) {
     console.error(

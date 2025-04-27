@@ -41,18 +41,25 @@ export const handleCallback = async (bot, callbackQuery, auth) => {
     confirmarAnular: () => handleListarPedidosCallback(bot, callbackQuery),
     cancelarAnular: () => handleListarPedidosCallback(bot, callbackQuery),
     calendar: () => handleResumenCallback(bot, callbackQuery),
+    // Nuevos handlers para zonas y programación
+    zona: () => handleListarPedidosCallback(bot, callbackQuery),
+    asignarZona: () => handleListarPedidosCallback(bot, callbackQuery),
+    nuevaZona: () => handleListarPedidosCallback(bot, callbackQuery),
+    sinZona: () => handleListarPedidosCallback(bot, callbackQuery),
+    programar: () => handleListarPedidosCallback(bot, callbackQuery),
   };
 
   // Ejecutar el manejador correspondiente
   const handler = actionHandlers[action];
+  console.log("handler:", handler);
   if (handler) {
     await handler();
   } else {
     console.log("Acción no manejada:", action);
     // Imprimir más información sobre el objeto callbackQuery para depuración
-    console.log(
-      "Objeto callbackQuery:",
-      JSON.stringify(callbackQuery, null, 2)
-    );
+    // console.log(
+    //   "Objeto callbackQuery:",
+    //   JSON.stringify(callbackQuery, null, 2)
+    // );
   }
 };

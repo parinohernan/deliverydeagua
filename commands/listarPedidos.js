@@ -1,5 +1,11 @@
 import { connection } from "../database/connection.js";
 import { getEmpresa } from "../database/empresaQueries.js";
+import {
+  obtenerZonasExistentes,
+  asignarZonaAPedido,
+  guardarNuevaZona,
+  crearBotonesZonas,
+} from "../utils/zonaUtils.js";
 
 export const listarPedidos = async (bot, msg) => {
   const chatId = msg.chat.id;
@@ -92,6 +98,16 @@ export const listarPedidos = async (bot, msg) => {
                 {
                   text: "📋 Ver Detalles",
                   callback_data: `detalles_${pedido.codigo}`,
+                },
+              ],
+              [
+                {
+                  text: "🗓️ Programar Entrega",
+                  callback_data: `programar_${pedido.codigo}`,
+                },
+                {
+                  text: "🚚 Asignar Zona",
+                  callback_data: `zona_${pedido.codigo}`,
                 },
               ],
               [
@@ -597,5 +613,349 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
     } catch (error) {
       console.error("Error al cancelar anulación:", error);
     }
+  } else if (action === "programar") {
+    const pedidoId = params[0];
+
+    // Enviamos un mensaje solicitando la fecha programada
+    bot
+      .sendMessage(
+        chatId,
+        `Por favor, ingresa la fecha y hora de entrega programada para el pedido #${pedidoId} en formato DD/MM/YYYY HH:MM`,
+        {
+          reply_markup: {
+            force_reply: true,
+            selective: true,
+          },
+        }
+      )
+      .then((sentMsg) => {
+        // Guardamos el ID del mensaje para identificar la respuesta
+        const replyListenerId = bot.onReplyToMessage(
+          chatId,
+          sentMsg.message_id,
+          (msg) => {
+            // Cuando el usuario responda con la fecha
+            const fechaProgramada = msg.text;
+
+            // Validamos el formato de la fecha (básico)
+            const fechaRegex = /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/;
+            if (!fechaRegex.test(fechaProgramada)) {
+              bot.sendMessage(
+                chatId,
+                "⚠️ Formato de fecha incorrecto. Por favor usa DD/MM/YYYY HH:MM"
+              );
+              return;
+            }
+
+            // Convertimos al formato de MySQL (YYYY-MM-DD HH:MM:SS)
+            const [fecha, hora] = fechaProgramada.split(" ");
+            const [dia, mes, anio] = fecha.split("/");
+            const mysqlFecha = `${anio}-${mes}-${dia} ${hora}:00`;
+
+            // Actualizamos el pedido en la base de datos
+            const updateQuery = `
+          UPDATE pedidos 
+          SET FechaProgramada = ?
+          WHERE codigo = ?
+        `;
+
+            connection.query(updateQuery, [mysqlFecha, pedidoId], (err) => {
+              if (err) {
+                console.error("Error al programar entrega:", err);
+                bot.sendMessage(
+                  chatId,
+                  `Error al programar la entrega: ${err.message}`
+                );
+                return;
+              }
+
+              bot.sendMessage(
+                chatId,
+                `✅ Entrega programada para el pedido #${pedidoId} el ${fechaProgramada}`
+              );
+
+              // Eliminamos el listener de respuesta
+              bot.removeReplyListener(replyListenerId);
+            });
+          }
+        );
+      });
+
+    await bot.answerCallbackQuery(callbackQuery.id);
+  } else if (action === "zona") {
+    const pedidoId = params[0];
+
+    // Primero verificamos si tenemos acceso a la información del vendedor
+    if (
+      !callbackQuery.message.vendedor ||
+      !callbackQuery.message.vendedor.codigoEmpresa
+    ) {
+      console.error(
+        "Error: No se encontró información del vendedor en el callback",
+        callbackQuery
+      );
+      bot.sendMessage(
+        chatId,
+        "Error: No se pudo obtener información de la empresa para asignar zona"
+      );
+      return;
+    }
+
+    const empresa = callbackQuery.message.vendedor.codigoEmpresa;
+    console.log("Asignando zona para pedido:", pedidoId, "empresa:", empresa);
+
+    try {
+      // Utilizamos la nueva función para obtener las zonas
+      const zonas = await obtenerZonasExistentes(empresa);
+
+      // Si hay zonas, mostramos botones para cada una
+      if (zonas && zonas.length > 0) {
+        console.log("Zonas encontradas:", zonas);
+
+        // Utilizamos la nueva función para crear los botones
+        const keyboard = crearBotonesZonas(zonas, pedidoId);
+
+        const options = {
+          reply_markup: {
+            inline_keyboard: keyboard,
+          },
+        };
+
+        bot.sendMessage(
+          chatId,
+          `Selecciona la zona para el pedido #${pedidoId}:`,
+          options
+        );
+      } else {
+        // Si no hay zonas, mostramos opciones para crear nueva o continuar sin asignar
+        console.log("No se encontraron zonas para empresa:", empresa);
+        const options = {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "➕ Crear nueva zona",
+                  callback_data: `nuevaZona_${pedidoId}`,
+                },
+              ],
+              [
+                {
+                  text: "⏭️ Continuar sin asignar zona",
+                  callback_data: `sinZona_${pedidoId}`,
+                },
+              ],
+            ],
+          },
+        };
+
+        bot.sendMessage(
+          chatId,
+          `No hay zonas disponibles para el pedido #${pedidoId}. ¿Qué deseas hacer?`,
+          options
+        );
+      }
+
+      try {
+        await bot.answerCallbackQuery(callbackQuery.id);
+      } catch (error) {
+        console.error("Error al responder al callback:", error);
+      }
+    } catch (error) {
+      console.error("Error al obtener zonas:", error);
+      bot.sendMessage(
+        chatId,
+        `Error al obtener zonas disponibles: ${error.message}`
+      );
+      await bot.answerCallbackQuery(callbackQuery.id);
+    }
+  } else if (action === "asignarZona") {
+    const [pedidoId, zona] = params;
+
+    // Verificamos si tenemos la información del vendedor
+    if (
+      !callbackQuery.message.vendedor ||
+      !callbackQuery.message.vendedor.codigoEmpresa
+    ) {
+      console.error(
+        "Error: No se encontró información del vendedor en el callback",
+        callbackQuery
+      );
+      bot.sendMessage(
+        chatId,
+        "Error: No se pudo obtener información de la empresa para asignar zona"
+      );
+      return;
+    }
+
+    const empresa = callbackQuery.message.vendedor.codigoEmpresa;
+    console.log(
+      "Asignando zona específica:",
+      zona,
+      "al pedido:",
+      pedidoId,
+      "empresa:",
+      empresa
+    );
+
+    try {
+      // Utilizamos la nueva función para asignar la zona
+      await asignarZonaAPedido(bot, chatId, pedidoId, zona, empresa);
+
+      // Eliminamos el mensaje de selección de zona
+      try {
+        await bot.deleteMessage(chatId, callbackQuery.message.message_id);
+      } catch (deleteError) {
+        console.error("Error al eliminar mensaje:", deleteError);
+      }
+
+      await bot.answerCallbackQuery(callbackQuery.id);
+    } catch (error) {
+      console.error("Error al asignar zona:", error);
+      await bot.answerCallbackQuery(callbackQuery.id, {
+        text: "Error al asignar zona",
+        show_alert: true,
+      });
+    }
+  } else if (action === "nuevaZona") {
+    const pedidoId = params[0];
+
+    // Verificamos si tenemos la información del vendedor
+    if (
+      !callbackQuery.message.vendedor ||
+      !callbackQuery.message.vendedor.codigoEmpresa
+    ) {
+      console.error(
+        "Error: No se encontró información del vendedor en el callback",
+        callbackQuery
+      );
+      bot.sendMessage(
+        chatId,
+        "Error: No se pudo obtener información de la empresa para crear zona"
+      );
+      return;
+    }
+
+    const empresa = callbackQuery.message.vendedor.codigoEmpresa;
+    console.log(
+      "Creando nueva zona para pedido:",
+      pedidoId,
+      "empresa:",
+      empresa
+    );
+
+    // Pedimos que ingrese la nueva zona
+    bot
+      .sendMessage(
+        chatId,
+        `Por favor, ingresa el nombre de la nueva zona para el pedido #${pedidoId}:`,
+        {
+          reply_markup: {
+            force_reply: true,
+            selective: true,
+          },
+        }
+      )
+      .then((sentMsg) => {
+        const replyListenerId = bot.onReplyToMessage(
+          chatId,
+          sentMsg.message_id,
+          async (msg) => {
+            const nuevaZona = msg.text;
+
+            // Si el usuario introduce un texto vacío o cancela
+            if (!nuevaZona || nuevaZona.trim() === "") {
+              bot.sendMessage(
+                chatId,
+                "❌ Operación cancelada. No se ha asignado ninguna zona."
+              );
+              bot.removeReplyListener(replyListenerId);
+              return;
+            }
+
+            try {
+              // Utilizamos la nueva función para guardar la zona
+              await guardarNuevaZona(nuevaZona, empresa);
+
+              // Asignamos la zona al pedido
+              await asignarZonaAPedido(
+                bot,
+                chatId,
+                pedidoId,
+                nuevaZona,
+                empresa
+              );
+
+              bot.removeReplyListener(replyListenerId);
+            } catch (error) {
+              console.error("Error al procesar nueva zona:", error);
+              bot.sendMessage(chatId, `Error: ${error.message}`);
+              bot.removeReplyListener(replyListenerId);
+            }
+          }
+        );
+      });
+
+    try {
+      await bot.answerCallbackQuery(callbackQuery.id);
+    } catch (error) {
+      console.error("Error al responder al callback:", error);
+    }
+  } else if (action === "sinZona") {
+    const pedidoId = params[0];
+
+    // Verificamos si tenemos la información del vendedor
+    if (
+      !callbackQuery.message.vendedor ||
+      !callbackQuery.message.vendedor.codigoEmpresa
+    ) {
+      console.error(
+        "Error: No se encontró información del vendedor en el callback",
+        callbackQuery
+      );
+      bot.sendMessage(
+        chatId,
+        "Error: No se pudo obtener información de la empresa para continuar sin zona"
+      );
+      return;
+    }
+
+    const empresa = callbackQuery.message.vendedor.codigoEmpresa;
+    console.log(
+      "Continuando sin asignar zona al pedido:",
+      pedidoId,
+      "empresa:",
+      empresa
+    );
+
+    // Limpiamos la zona del pedido (establecemos a NULL)
+    const updateQuery = `
+      UPDATE pedidos 
+      SET zona = NULL
+      WHERE codigo = ? AND codigoEmpresa = ?
+    `;
+
+    connection.query(updateQuery, [pedidoId, empresa], async (err) => {
+      if (err) {
+        console.error("Error al limpiar zona:", err);
+        bot.sendMessage(chatId, `Error al procesar: ${err.message}`);
+        return;
+      }
+
+      try {
+        await bot.answerCallbackQuery(callbackQuery.id, {
+          text: "✅ Pedido guardado sin zona asignada",
+          show_alert: true,
+        });
+
+        // Eliminamos el mensaje de selección de zona
+        try {
+          await bot.deleteMessage(chatId, callbackQuery.message.message_id);
+        } catch (error) {
+          console.error("Error al eliminar mensaje:", error);
+        }
+      } catch (error) {
+        console.error("Error al responder al callback:", error);
+      }
+    });
   }
 };
