@@ -48,6 +48,8 @@ export const handleCallback = async (bot, callbackQuery, auth) => {
     nuevaZona: () => handleListarPedidosCallback(bot, callbackQuery),
     sinZona: () => handleListarPedidosCallback(bot, callbackQuery),
     programar: () => handleListarPedidosCallback(bot, callbackQuery),
+    // Nuevo handler para listar pedidos por zona
+    listarPedidosZona: () => handleListarPedidosCallback(bot, callbackQuery),
   };
 
   // Si es un callback de productos, manejarlo directamente
