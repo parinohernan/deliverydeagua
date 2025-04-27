@@ -1,71 +1,116 @@
 import { connection } from "../database/connection.js";
+import { getEmpresa } from "../database/empresaQueries.js";
 
 export const listarPedidos = async (bot, msg) => {
   const chatId = msg.chat.id;
   const empresa = msg.vendedor.codigoEmpresa;
-  const query = `
-    SELECT 
-      p.codigo,
-      p.FechaPedido,
-      c.nombre,
-      c.apellido,
-      c.direccion,
-      (SELECT SUM(precioTotal) FROM pedidositems WHERE codigoPedido = p.codigo) as total
-    FROM pedidos p
-    JOIN clientes c ON p.codigocliente = c.codigo
-    WHERE p.FechaEntrega IS NULL 
-    AND p.codigoEmpresa = '${empresa}'
-    AND p.Estado IS NULL
-    ORDER BY p.FechaPedido DESC
-  `;
-  console.log("query:", query);
 
-  connection.query(query, (err, results) => {
-    if (err) {
-      bot.sendMessage(chatId, `Error al obtener pedidos: ${err.message}`);
-      return;
+  try {
+    // Obtener configuración de la empresa
+    const empresaConfig = await getEmpresa(empresa);
+    const usaEntregaProgramada = empresaConfig?.usaEntregaProgramada === 1;
+    const usaRepartoPorZona = empresaConfig?.usaRepartoPorZona === 1;
+
+    console.log("Configuración de empresa:", {
+      usaEntregaProgramada,
+      usaRepartoPorZona,
+    });
+
+    // Construir consulta SQL según configuración
+    let camposAdicionales = "";
+    if (usaEntregaProgramada) {
+      camposAdicionales += ", p.FechaProgramada";
+    }
+    if (usaRepartoPorZona) {
+      camposAdicionales += ", p.zona";
     }
 
-    if (results.length === 0) {
-      bot.sendMessage(chatId, "No hay pedidos pendientes de entrega.");
-      return;
-    }
+    const query = `
+      SELECT 
+        p.codigo,
+        p.FechaPedido,
+        p.FechaEntrega,
+        p.zona,
+        c.nombre,
+        c.apellido,
+        c.direccion,
+        (SELECT SUM(precioTotal) FROM pedidositems WHERE codigoPedido = p.codigo) as total
+        ${camposAdicionales}
+      FROM pedidos p
+      JOIN clientes c ON p.codigocliente = c.codigo
+      WHERE p.FechaEntrega IS NULL 
+      AND p.codigoEmpresa = '${empresa}'
+      AND p.Estado IS NULL OR p.Estado = 'P'
+      ORDER BY p.FechaPedido DESC
+    `;
 
-    results.forEach((pedido) => {
-      const mensaje = `
+    connection.query(query, (err, results) => {
+      if (err) {
+        bot.sendMessage(chatId, `Error al obtener pedidos: ${err.message}`);
+        return;
+      }
+
+      if (results.length === 0) {
+        bot.sendMessage(chatId, "No hay pedidos pendientes de entrega.");
+        return;
+      }
+
+      results.forEach((pedido) => {
+        // Construir el mensaje base
+        let mensaje = `
 🔖 Pedido #${pedido.codigo}
 📅 Fecha: ${new Date(pedido.FechaPedido).toLocaleString()}
-👤 cliente: ${pedido.nombre} ${pedido.apellido}
+🕒 Entrega: ${
+          pedido.FechaProgramada
+            ? new Date(pedido.FechaProgramada).toLocaleString()
+            : "No programada"
+        }
+👤 Cliente: ${pedido.nombre} ${pedido.apellido}
+📍 Zona: ${pedido.zona ? pedido.zona : "No asignada"}
 📍 Dirección: ${pedido.direccion}
-💰 Total: $${pedido.total}
-`;
+💰 Total: $${pedido.total}`;
 
-      const options = {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: "✅ Marcar como Entregado",
-                callback_data: `entregar_${pedido.codigo}`,
-              },
-              {
-                text: "📋 Ver Detalles",
-                callback_data: `detalles_${pedido.codigo}`,
-              },
-            ],
-            [
-              {
-                text: "❌ Anular Pedido",
-                callback_data: `anular_${pedido.codigo}`,
-              },
-            ],
-          ],
-        },
-      };
+        // Añadir fecha programada si corresponde
+        if (usaEntregaProgramada && pedido.FechaProgramada) {
+          const fechaProgramada = new Date(pedido.FechaProgramada);
+          mensaje += `\n🗓️ Entrega programada: ${fechaProgramada.toLocaleString()}`;
+        }
 
-      bot.sendMessage(chatId, mensaje, options);
+        // Añadir zona de reparto si corresponde
+        if (usaRepartoPorZona && pedido.zona) {
+          mensaje += `\n🚚 Zona de reparto: ${pedido.zona}`;
+        }
+
+        const options = {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "✅ Marcar como Entregado",
+                  callback_data: `entregar_${pedido.codigo}`,
+                },
+                {
+                  text: "📋 Ver Detalles",
+                  callback_data: `detalles_${pedido.codigo}`,
+                },
+              ],
+              [
+                {
+                  text: "❌ Anular Pedido",
+                  callback_data: `anular_${pedido.codigo}`,
+                },
+              ],
+            ],
+          },
+        };
+
+        bot.sendMessage(chatId, mensaje, options);
+      });
     });
-  });
+  } catch (error) {
+    console.error("Error al obtener configuración de empresa:", error);
+    bot.sendMessage(chatId, `Error: ${error.message}`);
+  }
 };
 
 const obtenerTiposPago = (empresa) => {
