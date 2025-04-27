@@ -18,6 +18,11 @@ import {
   obtenerZonasExistentes,
   crearTecladoZonas,
 } from "../utils/zonaUtils.js";
+import {
+  validarFormatoFechaHora,
+  generarMensajeAyudaFecha,
+  convertirFechaAFormatoSQL,
+} from "../utils/fechaProgramadaUtils.js";
 
 export const cargarPedido = async (bot, msg) => {
   const chatId = msg.chat.id;
@@ -358,7 +363,7 @@ export const handleCargarPedidoResponse = async (bot, msg) => {
       return;
     }
 
-    // Verificar formato de fecha y hora
+    // Verificar formato de fecha y hora usando la función utilitaria
     const fechaValida = validarFormatoFechaHora(texto);
     if (!fechaValida) {
       bot.sendMessage(chatId, PEDIDO_MESSAGES.FORMATO_FECHA_INCORRECTO);
@@ -699,9 +704,10 @@ const guardarPedido = async (pedido) => {
           ) VALUES (?, ?, ?, ?, ?, ?, 'P', ?, ?)
         `;
 
-        const fechaProgramadaValue = pedido.fechaProgramada
-          ? new Date(pedido.fechaProgramada)
-          : null;
+        // Aquí ya recibimos la fecha en formato SQL, no es necesario convertirla
+        console.log(
+          `Guardando fecha programada: ${pedido.fechaProgramada || "NULL"}`
+        );
 
         connection.query(
           querySavePedido,
@@ -711,7 +717,7 @@ const guardarPedido = async (pedido) => {
             new Date(),
             pedido.total,
             pedido.total, // El saldo inicial es igual al total
-            fechaProgramadaValue,
+            pedido.fechaProgramada || null,
             pedido.zona || null, // Zona de reparto (puede ser null)
             pedido.codigoVendedor,
           ],
@@ -814,23 +820,11 @@ const solicitarFechaProgramada = async (bot, chatId, state) => {
       step: 4,
     });
 
-    const ahora = new Date();
-    const manana = new Date(ahora);
-    manana.setDate(ahora.getDate() + 1);
-
-    // Formatear fecha de ejemplo (mañana a las 10:00)
-    const dia = manana.getDate().toString().padStart(2, "0");
-    const mes = (manana.getMonth() + 1).toString().padStart(2, "0");
-    const anio = manana.getFullYear();
-
-    await bot.sendMessage(
-      chatId,
-      PEDIDO_MESSAGES.PROGRAMAR_ENTREGA(dia, mes, anio),
-      {
-        ...PEDIDO_KEYBOARDS.PROGRAMAR_ENTREGA,
-        parse_mode: "Markdown",
-      }
-    );
+    // Usamos la función utilitaria para generar el mensaje con el ejemplo
+    await bot.sendMessage(chatId, generarMensajeAyudaFecha(), {
+      ...PEDIDO_KEYBOARDS.PROGRAMAR_ENTREGA,
+      parse_mode: "Markdown",
+    });
 
     console.log(
       `[solicitarFechaProgramada] Mensaje enviado correctamente a chatId: ${chatId}`
@@ -844,80 +838,12 @@ const solicitarFechaProgramada = async (bot, chatId, state) => {
   }
 };
 
-// Función para validar el formato de fecha y hora
-const validarFormatoFechaHora = (texto) => {
-  console.log(`Validando formato de fecha: '${texto}'`);
-  // Expresión regular para validar formato DD/MM/YYYY HH:MM
-  const formatoRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{1,2}):(\d{1,2})$/;
-
-  const match = texto.match(formatoRegex);
-  if (!match) {
-    console.log("Formato no coincide con la expresión regular");
-    return false;
-  }
-
-  const [, dia, mes, anio, hora, minuto] = match;
-  console.log(
-    `Fecha desglosada: día=${dia}, mes=${mes}, año=${anio}, hora=${hora}, minuto=${minuto}`
-  );
-
-  // Validar rangos
-  if (
-    parseInt(dia) < 1 ||
-    parseInt(dia) > 31 ||
-    parseInt(mes) < 1 ||
-    parseInt(mes) > 12 ||
-    parseInt(anio) < 2023 || // Validamos desde el año actual
-    parseInt(hora) < 0 ||
-    parseInt(hora) > 23 ||
-    parseInt(minuto) < 0 ||
-    parseInt(minuto) > 59
-  ) {
-    console.log("Valores fuera de rango");
-    return false;
-  }
-
-  // Convertir a objeto Date
-  // Nota: los meses en JavaScript empiezan desde 0, por eso restamos 1 al mes
-  const fecha = new Date(anio, mes - 1, dia, hora, minuto, 0);
-  console.log(`Fecha convertida: ${fecha.toISOString()}`);
-
-  // Validar que sea una fecha en el futuro
-  const ahora = new Date();
-  console.log(`Fecha actual: ${ahora.toISOString()}`);
-  console.log(`¿Es fecha futura? ${fecha > ahora}`);
-
-  if (fecha <= ahora) {
-    return false;
-  }
-
-  return fecha;
-};
-
-// Función para validar que la fecha sea futura
-const validarFechaFutura = (texto) => {
-  const formatoRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{1,2}):(\d{1,2})$/;
-  const match = texto.match(formatoRegex);
-
-  if (!match) return false;
-
-  const [, dia, mes, anio, hora, minuto] = match;
-
-  // Crear fecha correctamente (los meses en JS son 0-indexed)
-  const fecha = new Date(anio, mes - 1, dia, hora, minuto, 0);
-  const ahora = new Date();
-
-  console.log(`validarFechaFutura - Fecha ingresada: ${fecha.toISOString()}`);
-  console.log(`validarFechaFutura - Fecha actual: ${ahora.toISOString()}`);
-  console.log(`validarFechaFutura - ¿Es futura? ${fecha > ahora}`);
-
-  return fecha > ahora;
-};
-
 // Función para finalizar el pedido
 const finalizarPedido = async (bot, chatId, state, fechaProgramada = null) => {
   console.log(
-    `[finalizarPedido] Finalizando pedido para chatId: ${chatId}, fechaProgramada: ${fechaProgramada}`
+    `[finalizarPedido] Finalizando pedido para chatId: ${chatId}, fechaProgramada: ${
+      fechaProgramada?.toISOString() || null
+    }`
   );
 
   try {
@@ -933,13 +859,22 @@ const finalizarPedido = async (bot, chatId, state, fechaProgramada = null) => {
       throw new Error("Datos incompletos para guardar el pedido");
     }
 
+    // Si hay fecha programada, convertirla a formato SQL
+    let fechaSQL = null;
+    if (fechaProgramada) {
+      fechaSQL = convertirFechaAFormatoSQL(fechaProgramada);
+      if (!fechaSQL) {
+        throw new Error("Error al convertir la fecha programada a formato SQL");
+      }
+    }
+
     const pedido = {
       codigoEmpresa: state.data.codigoEmpresa,
       codigoCliente: state.data.cliente.codigo,
       fecha: new Date(),
       total: state.data.total,
       items: state.data.items,
-      fechaProgramada: fechaProgramada, // Guardar la fecha programada (o null si no se proporcionó)
+      fechaProgramada: fechaSQL, // Usar la fecha en formato SQL o null
       zona: state.data.zona, // Zona de reparto (puede ser null)
       codigoVendedor: state.data.codigoVendedor,
     };

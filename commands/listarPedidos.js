@@ -6,6 +6,12 @@ import {
   guardarNuevaZona,
   crearBotonesZonas,
 } from "../utils/zonaUtils.js";
+import {
+  validarFormatoFechaHora,
+  convertirTextoAFecha,
+  asignarFechaProgramada,
+  generarMensajeAyudaFecha,
+} from "../utils/fechaProgramadaUtils.js";
 
 export const listarPedidos = async (bot, msg) => {
   const chatId = msg.chat.id;
@@ -616,72 +622,93 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
   } else if (action === "programar") {
     const pedidoId = params[0];
 
-    // Enviamos un mensaje solicitando la fecha programada
-    bot
-      .sendMessage(
+    // Verificamos si tenemos la información del vendedor
+    if (
+      !callbackQuery.message.vendedor ||
+      !callbackQuery.message.vendedor.codigoEmpresa
+    ) {
+      console.error(
+        "Error: No se encontró información del vendedor en el callback",
+        callbackQuery
+      );
+      bot.sendMessage(
         chatId,
-        `Por favor, ingresa la fecha y hora de entrega programada para el pedido #${pedidoId} en formato DD/MM/YYYY HH:MM`,
-        {
-          reply_markup: {
-            force_reply: true,
-            selective: true,
-          },
-        }
-      )
+        "Error: No se pudo obtener información de la empresa para programar entrega"
+      );
+      return;
+    }
+
+    const empresa = callbackQuery.message.vendedor.codigoEmpresa;
+    console.log(
+      "Programando entrega para pedido:",
+      pedidoId,
+      "empresa:",
+      empresa
+    );
+
+    // Enviamos mensaje solicitando la fecha programada con el mensaje de ayuda
+    bot
+      .sendMessage(chatId, generarMensajeAyudaFecha(), {
+        reply_markup: {
+          force_reply: true,
+          selective: true,
+        },
+        parse_mode: "Markdown",
+      })
       .then((sentMsg) => {
-        // Guardamos el ID del mensaje para identificar la respuesta
         const replyListenerId = bot.onReplyToMessage(
           chatId,
           sentMsg.message_id,
-          (msg) => {
+          async (msg) => {
             // Cuando el usuario responda con la fecha
-            const fechaProgramada = msg.text;
+            const fechaProgramadaTexto = msg.text;
 
-            // Validamos el formato de la fecha (básico)
-            const fechaRegex = /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/;
-            if (!fechaRegex.test(fechaProgramada)) {
+            // Si el usuario cancela
+            if (fechaProgramadaTexto === "❌ Cancelar") {
               bot.sendMessage(
                 chatId,
-                "⚠️ Formato de fecha incorrecto. Por favor usa DD/MM/YYYY HH:MM"
+                "❌ Operación cancelada. No se ha programado ninguna entrega."
               );
+              bot.removeReplyListener(replyListenerId);
               return;
             }
 
-            // Convertimos al formato de MySQL (YYYY-MM-DD HH:MM:SS)
-            const [fecha, hora] = fechaProgramada.split(" ");
-            const [dia, mes, anio] = fecha.split("/");
-            const mysqlFecha = `${anio}-${mes}-${dia} ${hora}:00`;
-
-            // Actualizamos el pedido en la base de datos
-            const updateQuery = `
-          UPDATE pedidos 
-          SET FechaProgramada = ?
-          WHERE codigo = ?
-        `;
-
-            connection.query(updateQuery, [mysqlFecha, pedidoId], (err) => {
-              if (err) {
-                console.error("Error al programar entrega:", err);
-                bot.sendMessage(
-                  chatId,
-                  `Error al programar la entrega: ${err.message}`
-                );
-                return;
-              }
-
+            // Validamos el formato y que sea una fecha futura
+            const fechaProgramada =
+              validarFormatoFechaHora(fechaProgramadaTexto);
+            if (!fechaProgramada) {
               bot.sendMessage(
                 chatId,
-                `✅ Entrega programada para el pedido #${pedidoId} el ${fechaProgramada}`
+                "⚠️ Formato de fecha incorrecto o fecha en el pasado. Por favor usa DD/MM/YYYY HH:MM y asegúrate que la fecha sea futura."
               );
-
-              // Eliminamos el listener de respuesta
               bot.removeReplyListener(replyListenerId);
-            });
+              return;
+            }
+
+            try {
+              // Asignamos la fecha programada al pedido
+              await asignarFechaProgramada(
+                bot,
+                chatId,
+                pedidoId,
+                fechaProgramada,
+                empresa
+              );
+              bot.removeReplyListener(replyListenerId);
+            } catch (error) {
+              console.error("Error al programar entrega:", error);
+              bot.sendMessage(chatId, `Error: ${error.message}`);
+              bot.removeReplyListener(replyListenerId);
+            }
           }
         );
       });
 
-    await bot.answerCallbackQuery(callbackQuery.id);
+    try {
+      await bot.answerCallbackQuery(callbackQuery.id);
+    } catch (error) {
+      console.error("Error al responder al callback:", error);
+    }
   } else if (action === "zona") {
     const pedidoId = params[0];
 
