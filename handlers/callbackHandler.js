@@ -27,6 +27,17 @@ export const handleCallback = async (bot, callbackQuery, auth) => {
     return resultado;
   }
 
+  // Si es un callback de productos, manejarlo directamente
+  if (
+    callbackQuery.data.startsWith("ingresar_") ||
+    callbackQuery.data.startsWith("ver_") ||
+    callbackQuery.data.startsWith("actualizarprecio_") ||
+    callbackQuery.data.includes("Stock_")
+  ) {
+    console.log("Detectado callback de productos:", callbackQuery.data);
+    return handleProductosCallback(bot, callbackQuery);
+  }
+
   // Responder al callback para quitar el "loading" del botón
   bot.answerCallbackQuery(callbackQuery.id);
 
@@ -60,15 +71,6 @@ export const handleCallback = async (bot, callbackQuery, auth) => {
     // Nuevo handler para listar pedidos por zona
     listarPedidosZona: () => handleListarPedidosCallback(bot, callbackQuery),
   };
-
-  // Si es un callback de productos, manejarlo directamente
-  if (
-    ["ingresar_stock", "ver_stock", "actualizarprecio_producto"].includes(
-      callbackQuery.data
-    )
-  ) {
-    return handleProductosCallback(bot, callbackQuery);
-  }
 
   // Ejecutar el manejador correspondiente
   const handler = actionHandlers[action];

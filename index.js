@@ -87,7 +87,17 @@ bot.on("message", async (msg) => {
   // Verificar si hay estado de conversación activo
   const state = getConversationState(chatId);
 
-  // Verificar primero si es una respuesta a contacto
+  // Verificar primero si es una respuesta a gestión de productos
+  if (state && state.command === "gestionProductos") {
+    console.log(
+      "Se detectó estado de gestión de productos, procesando respuesta..."
+    );
+    const { handleProductosResponse } = await import("./commands/productos.js");
+    const handled = await handleProductosResponse(bot, msg);
+    if (handled) return;
+  }
+
+  // Verificar si es una respuesta a contacto
   if (state && state.command === "contacto") {
     console.log("Se detectó estado de contacto, procesando respuesta...");
     const { handleContactoResponse } = await import("./commands/contacto.js");
@@ -137,6 +147,9 @@ bot.on("message", async (msg) => {
               state.data.saldoRetornables + state.data.totalRetornables,
           });
         }
+      } else if (state.command === "gestionProductos") {
+        console.log("Cancelando proceso de gestión de productos");
+        bot.sendMessage(chatId, "❌ Operación de productos cancelada.");
       }
 
       endConversation(chatId);

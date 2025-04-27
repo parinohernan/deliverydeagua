@@ -27,7 +27,11 @@ import {
 import { handleHelp } from "./helpHandler.js";
 import { KEYBOARD_BUTTONS } from "../constants/messages.js";
 import { conversations } from "./conversationHandler.js";
-import { productos, handleProductosResponse } from "../commands/productos.js";
+import {
+  productos,
+  handleProductosResponse,
+  handleProductosCallback,
+} from "../commands/productos.js";
 import {
   contacto,
   responderUsuario,
@@ -87,11 +91,11 @@ const handleActiveConversation = (bot, msg) => {
 
   // Luego procesamos las otras conversaciones activas
   return (
+    handleProductosResponse(bot, msg) ||
     handleContactoResponse(bot, msg) ||
     handleCrearClienteResponse(bot, msg) ||
     handleConsultarClienteResponse(bot, msg) ||
     handleCargarPedidoResponse(bot, msg) ||
-    handleProductosResponse(bot, msg) ||
     handleResumenEntreFechasResponse(bot, msg) ||
     handleCobrosResponse(bot, msg)
   );
@@ -197,7 +201,9 @@ export const handleCommand = (bot, msg) => {
 export const handleCallbackQuery = (bot, query) => {
   // Intentar procesar con diferentes handlers de callback
   return (
-    handleContactoCallback(bot, query) || handleStockCallback(bot, query)
+    handleContactoCallback(bot, query) ||
+    handleProductosCallback(bot, query) ||
+    handleStockCallback(bot, query)
     // Agregar aquí otros handlers de callbacks si los hay
   );
 };

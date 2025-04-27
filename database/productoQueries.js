@@ -3,8 +3,8 @@ import { connection } from "./connection.js";
 export const agregarProducto = async (producto) => {
   return new Promise((resolve, reject) => {
     const query = `
-      INSERT INTO productos (descripcion, precio,stock, codigoEmpresa,activo)
-      VALUES (?,?,?,?,1)
+      INSERT INTO productos (descripcion, precio, stock, codigoEmpresa, activo, esRetornable)
+      VALUES (?,?,?,?,1,0)
     `;
     connection.query(
       query,
@@ -29,7 +29,7 @@ export const modificarProducto = async (producto) => {
   return new Promise((resolve, reject) => {
     const query = `
       UPDATE productos
-      SET descripcion = ?, precio = ?, stock = ?
+      SET descripcion = ?, precio = ?, stock = ?, esRetornable = 0
       WHERE codigo = ?
     `;
     connection.query(
