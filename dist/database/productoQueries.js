@@ -3,12 +3,17 @@ import { connection } from "./connection.js";
 export const agregarProducto = async (producto) => {
   return new Promise((resolve, reject) => {
     const query = `
-      INSERT INTO productos (nombre, precio, activo)
-      VALUES (?, ?, 1)
+      INSERT INTO productos (descripcion, precio, stock, codigoEmpresa, activo, esRetornable)
+      VALUES (?,?,?,?,1,0)
     `;
     connection.query(
       query,
-      [producto.nombre, producto.precio],
+      [
+        producto.descripcion,
+        producto.precio,
+        producto.stock,
+        producto.codigoEmpresa,
+      ],
       (err, results) => {
         if (err) {
           reject(err);
@@ -24,12 +29,12 @@ export const modificarProducto = async (producto) => {
   return new Promise((resolve, reject) => {
     const query = `
       UPDATE productos
-      SET nombre = ?, precio = ?
+      SET descripcion = ?, precio = ?, stock = ?
       WHERE codigo = ?
     `;
     connection.query(
       query,
-      [producto.nombre, producto.precio, producto.codigo],
+      [producto.descripcion, producto.precio, producto.stock, producto.codigo],
       (err, results) => {
         if (err) {
           reject(err);
@@ -58,12 +63,13 @@ export const eliminarProducto = async (codigo) => {
   });
 };
 
-export const listarProductos = async () => {
+export const listarProductos = async (codigoEmpresa) => {
   return new Promise((resolve, reject) => {
     const query = `
-      SELECT codigo, nombre, precio
+      SELECT codigo, descripcion, precio, stock
       FROM productos
-      WHERE activo = 1
+      WHERE codigoEmpresa = ${codigoEmpresa}
+      AND activo = 1
     `;
     connection.query(query, (err, results) => {
       if (err) {

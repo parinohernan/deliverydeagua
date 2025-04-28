@@ -8,6 +8,8 @@ import {
   actualizarPrecio,
   // actualizarPrecioXCodigo,
 } from "../commands/stock.js";
+import { handleProductosCallback } from "../commands/productos.js";
+import { handleContactoCallback } from "../commands/contacto.js";
 
 export const handleCallback = async (bot, callbackQuery, auth) => {
   const action = callbackQuery.data.split("_")[0];
@@ -16,6 +18,25 @@ export const handleCallback = async (bot, callbackQuery, auth) => {
 
   console.log("handleCallback - action:", action);
   console.log("handleCallback - callbackQuery.data:", callbackQuery.data);
+
+  // Comprobar primero si es un callback de contacto
+  if (callbackQuery.data.startsWith("contacto_")) {
+    console.log("Detectado callback de contacto:", callbackQuery.data);
+    const resultado = handleContactoCallback(bot, callbackQuery);
+    console.log("Resultado de handleContactoCallback:", resultado);
+    return resultado;
+  }
+
+  // Si es un callback de productos, manejarlo directamente
+  if (
+    callbackQuery.data.startsWith("ingresar_") ||
+    callbackQuery.data.startsWith("ver_") ||
+    callbackQuery.data.startsWith("actualizarprecio_") ||
+    callbackQuery.data.includes("Stock_")
+  ) {
+    console.log("Detectado callback de productos:", callbackQuery.data);
+    return handleProductosCallback(bot, callbackQuery);
+  }
 
   // Responder al callback para quitar el "loading" del botón
   bot.answerCallbackQuery(callbackQuery.id);
@@ -47,19 +68,20 @@ export const handleCallback = async (bot, callbackQuery, auth) => {
     nuevaZona: () => handleListarPedidosCallback(bot, callbackQuery),
     sinZona: () => handleListarPedidosCallback(bot, callbackQuery),
     programar: () => handleListarPedidosCallback(bot, callbackQuery),
+    // Nuevo handler para listar pedidos por zona
+    listarPedidosZona: () => handleListarPedidosCallback(bot, callbackQuery),
   };
 
   // Ejecutar el manejador correspondiente
   const handler = actionHandlers[action];
-  console.log("handler:", handler);
   if (handler) {
     await handler();
   } else {
     console.log("Acción no manejada:", action);
     // Imprimir más información sobre el objeto callbackQuery para depuración
-    // console.log(
-    //   "Objeto callbackQuery:",
-    //   JSON.stringify(callbackQuery, null, 2)
-    // );
+    console.log(
+      "Objeto callbackQuery:",
+      JSON.stringify(callbackQuery, null, 2)
+    );
   }
 };

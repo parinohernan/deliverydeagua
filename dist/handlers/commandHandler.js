@@ -27,12 +27,23 @@ import {
 import { handleHelp } from "./helpHandler.js";
 import { KEYBOARD_BUTTONS } from "../constants/messages.js";
 import { conversations } from "./conversationHandler.js";
+import {
+  productos,
+  handleProductosResponse,
+  handleProductosCallback,
+} from "../commands/productos.js";
+import {
+  contacto,
+  responderUsuario,
+  handleContactoResponse,
+  handleContactoCallback,
+} from "../commands/contacto.js";
 
-const mostrarMenuPrincipal = async (bot, chatId, vendedor) => {
+export const mostrarMenuPrincipal = async (bot, chatId, vendedor) => {
   console.log("Mostrando menú principal");
   try {
     const empresa = await getEmpresa(vendedor.codigoEmpresa);
-    const mensaje = getMainMenuMessage(empresa, vendedor);
+    const mensaje = await getMainMenuMessage(empresa, vendedor);
     const options = {
       parse_mode: "Markdown",
       reply_markup: KEYBOARD_LAYOUT,
@@ -80,6 +91,8 @@ const handleActiveConversation = (bot, msg) => {
 
   // Luego procesamos las otras conversaciones activas
   return (
+    handleProductosResponse(bot, msg) ||
+    handleContactoResponse(bot, msg) ||
     handleCrearClienteResponse(bot, msg) ||
     handleConsultarClienteResponse(bot, msg) ||
     handleCargarPedidoResponse(bot, msg) ||
@@ -117,7 +130,9 @@ const commandHandlers = {
   [COMMANDS.CARGAR_PEDIDO]: (bot, msg) => cargarPedido(bot, msg),
   [COMMANDS.LISTAR_PEDIDOS]: (bot, msg) => listarPedidos(bot, msg),
   [COMMANDS.RESUMEN]: (bot, msg) => resumenPedidos(bot, msg),
+  [COMMANDS.GESTION_PRODUCTOS]: (bot, msg) => productos(bot, msg),
   [COMMANDS.STOCK]: (bot, msg) => stock(bot, msg),
+  [COMMANDS.CONTACTO]: (bot, msg) => contacto(bot, msg),
   [COMMANDS.CANCELAR]: (bot, msg) => {
     handleCancelacion(bot, msg.chat.id);
     mostrarMenuPrincipal(bot, msg.chat.id, msg.vendedor);
@@ -131,13 +146,20 @@ const BUTTON_TO_COMMAND = {
   [KEYBOARD_BUTTONS.VER_PEDIDOS]: COMMANDS.LISTAR_PEDIDOS,
   [KEYBOARD_BUTTONS.NUEVO_CLIENTE]: COMMANDS.CREAR_CLIENTE,
   [KEYBOARD_BUTTONS.RESUMEN]: COMMANDS.RESUMEN,
-  [KEYBOARD_BUTTONS.STOCK]: COMMANDS.STOCK,
+  [KEYBOARD_BUTTONS.GESTION_PRODUCTOS]: COMMANDS.GESTION_PRODUCTOS,
+  [KEYBOARD_BUTTONS.CONTACTO]: COMMANDS.CONTACTO,
   [KEYBOARD_BUTTONS.CANCELAR]: COMMANDS.CANCELAR,
 };
 
 export const handleCommand = (bot, msg) => {
   const text = msg.text;
   const chatId = msg.chat.id;
+
+  // Verificar si es un comando de respuesta del administrador
+  if (text?.startsWith("/responder ")) {
+    return responderUsuario(bot, msg);
+  }
+
   // Verificar si es una solicitud de ayuda
   if (text?.includes("ayuda")) {
     const comando = text.split(" ")[0].replace("/", "");
@@ -173,4 +195,15 @@ export const handleCommand = (bot, msg) => {
   if (handleActiveConversation(bot, msg)) {
     return true;
   }
+};
+
+// Exportar función para manejar callbacks de botones inline
+export const handleCallbackQuery = (bot, query) => {
+  // Intentar procesar con diferentes handlers de callback
+  return (
+    handleContactoCallback(bot, query) ||
+    handleProductosCallback(bot, query) ||
+    handleStockCallback(bot, query)
+    // Agregar aquí otros handlers de callbacks si los hay
+  );
 };
