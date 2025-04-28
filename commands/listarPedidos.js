@@ -329,10 +329,10 @@ const mostrarDetallesPedidoCompleto = async (bot, callbackQuery) => {
             },
           ],
           [
-            {
-              text: "🗓️ Programar Entrega",
-              callback_data: `programar_${pedido.codigo}`,
-            },
+            // {
+            //   text: "🗓️ Programar Entrega",
+            //   callback_data: `programar_${pedido.codigo}`,
+            // },
             {
               text: "🚚 Asignar Zona",
               callback_data: `zona_${pedido.codigo}`,

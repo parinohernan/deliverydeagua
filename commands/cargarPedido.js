@@ -23,6 +23,16 @@ import {
   generarMensajeAyudaFecha,
   convertirFechaAFormatoSQL,
 } from "../utils/fechaProgramadaUtils.js";
+import { obtenerZonaHorariaEmpresa } from "../database/pedidoQueries.js";
+
+// Función para aplicar zona horaria a una fecha
+const aplicarZonaHoraria = (fecha, zonaHoraria) => {
+  // Crear una nueva fecha para no modificar la original
+  const fechaAjustada = new Date(fecha);
+  // Ajustar la fecha según la zona horaria (zonaHoraria contiene el desplazamiento en horas)
+  fechaAjustada.setHours(fechaAjustada.getHours() + parseInt(zonaHoraria));
+  return fechaAjustada;
+};
 
 export const cargarPedido = async (bot, msg) => {
   const chatId = msg.chat.id;
@@ -718,8 +728,15 @@ const isUserAuthorized = async (chatId, username) => {
 
 // Función para guardar el pedido en la base de datos
 const guardarPedido = async (pedido) => {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     try {
+      // Obtener la zona horaria de la empresa
+      const zonaHoraria = await obtenerZonaHorariaEmpresa(pedido.codigoEmpresa);
+
+      // Aplicar la zona horaria a la fecha actual
+      const fechaActual = new Date();
+      const fechaAjustada = aplicarZonaHoraria(fechaActual, zonaHoraria);
+
       // Iniciar transacción para asegurar integridad
       connection.beginTransaction((err) => {
         if (err) {
@@ -752,7 +769,7 @@ const guardarPedido = async (pedido) => {
           [
             pedido.codigoEmpresa,
             pedido.codigoCliente,
-            new Date(),
+            fechaAjustada, // Usar la fecha ajustada según zona horaria
             pedido.total,
             pedido.total, // El saldo inicial es igual al total
             pedido.fechaProgramada || null,
@@ -906,10 +923,19 @@ const finalizarPedido = async (bot, chatId, state, fechaProgramada = null) => {
       }
     }
 
+    // Obtener la zona horaria de la empresa
+    const zonaHoraria = await obtenerZonaHorariaEmpresa(
+      state.data.codigoEmpresa
+    );
+
+    // Aplicar la zona horaria a la fecha actual
+    const fechaActual = new Date();
+    const fechaAjustada = aplicarZonaHoraria(fechaActual, zonaHoraria);
+
     const pedido = {
       codigoEmpresa: state.data.codigoEmpresa,
       codigoCliente: state.data.cliente.codigo,
-      fecha: new Date(),
+      fecha: fechaAjustada, // Usar la fecha ajustada por zona horaria
       total: state.data.total,
       items: state.data.items,
       fechaProgramada: fechaSQL, // Usar la fecha en formato SQL o null
