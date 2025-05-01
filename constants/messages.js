@@ -6,11 +6,15 @@ import {
 export const KEYBOARD_BUTTONS = {
   CARGAR_PEDIDO: "📝 Cargar Pedido",
   VER_PEDIDOS: "📋 Ver Pedidos",
-  COBROS: "💰 Cobros",
+  CLIENTES: "👥 Clientes",
   NUEVO_CLIENTE: "🆕 Nuevo Cliente",
+  COBROS: "📊 Estado de Cuenta",
+  EDITAR_CLIENTE: "✏️ Editar Cliente",
+  ELIMINAR_CLIENTE: "🗑️ Eliminar Cliente",
+  DEVOLVER_RETORNABLES: "🧴 Devolver Retornables",
   RESUMEN: "📊 Resumen",
   GESTION_PRODUCTOS: "📦 Gestión Productos",
-  CONTACTO: "📞 Contacto",
+  CONTACTO: "📞 Soporte Técnico",
   CANCELAR: "❌ Cancelar",
 };
 
@@ -18,8 +22,9 @@ export const COMMANDS = {
   START: "/start",
   MENU: "/menu",
   AYUDA: "/ayuda",
-  CREAR_CLIENTE: "/crearcliente",
-  COBROS: "/cobros",
+  CLIENTES: "/clientes",
+  ELIMINAR_CLIENTE: "/eliminarcliente",
+  DEVOLVER_RETORNABLES: "/devolverretornables",
   CARGAR_PEDIDO: "/cargarpedido",
   LISTAR_PEDIDOS: "/listarpedidos",
   RESUMEN: "/resumen",
@@ -33,8 +38,8 @@ export const COMMANDS = {
 export const KEYBOARD_LAYOUT = {
   keyboard: [
     [KEYBOARD_BUTTONS.CARGAR_PEDIDO, KEYBOARD_BUTTONS.VER_PEDIDOS],
-    [KEYBOARD_BUTTONS.NUEVO_CLIENTE, KEYBOARD_BUTTONS.RESUMEN],
-    [KEYBOARD_BUTTONS.COBROS, KEYBOARD_BUTTONS.GESTION_PRODUCTOS],
+    [KEYBOARD_BUTTONS.CLIENTES, KEYBOARD_BUTTONS.DEVOLVER_RETORNABLES],
+    [KEYBOARD_BUTTONS.RESUMEN, KEYBOARD_BUTTONS.GESTION_PRODUCTOS],
     [KEYBOARD_BUTTONS.CONTACTO, KEYBOARD_BUTTONS.CANCELAR],
   ],
   resize_keyboard: true,

@@ -1094,8 +1094,14 @@ const buscarClientes = (bot, chatId, texto, codigoEmpresa) => {
   }
 
   // Búsqueda por nombre/apellido
-  const query =
-    "SELECT codigo, nombre, apellido FROM clientes WHERE (nombre LIKE ? OR apellido LIKE ?) AND codigoEmpresa = ? LIMIT 5";
+  const query = `
+    SELECT codigo, nombre, apellido 
+    FROM clientes c 
+    WHERE (c.nombre LIKE ? OR c.apellido LIKE ?) 
+    AND c.codigoEmpresa = ? 
+    AND c.activo = 1
+    LIMIT 5
+  `;
   const params = [`%${texto}%`, `%${texto}%`, codigoEmpresa];
 
   console.log(

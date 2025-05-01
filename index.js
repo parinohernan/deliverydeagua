@@ -10,6 +10,9 @@ import {
 } from "./handlers/conversationHandler.js";
 import { handleCallback } from "./handlers/callbackHandler.js";
 import { handleCobrosResponse } from "./commands/cobros.js";
+import { handleEditarClienteResponse } from "./commands/editarCliente.js";
+import { handleDevolverRetornablesResponse } from "./commands/devolverRetornables.js";
+import { handleEliminarClienteResponse } from "./commands/eliminarCliente.js";
 // import { operacionesPendientes } from "./handlers/conversationHandler.js";
 // import { procesarEntrada } from "./commands/stock.js";
 // Configuración del bot
@@ -142,11 +145,30 @@ bot.on("message", async (msg) => {
     if (handled) return;
   }
 
-  // // Verificar si hay una operación pendiente
-  // if (operacionesPendientes[chatId]) {
-  //   procesarEntrada(bot, msg);
-  //   return;
-  // }
+  // Verificar si es una respuesta a editar cliente
+  if (state && state.command === "editarCliente") {
+    console.log("Se detectó estado de editar cliente, procesando respuesta...");
+    const handled = await handleEditarClienteResponse(bot, msg);
+    if (handled) return;
+  }
+
+  // Verificar si es una respuesta a devolver retornables
+  if (state && state.command === "devolverRetornables") {
+    console.log(
+      "Se detectó estado de devolver retornables, procesando respuesta..."
+    );
+    const handled = await handleDevolverRetornablesResponse(bot, msg);
+    if (handled) return;
+  }
+
+  // Verificar si es una respuesta a eliminar cliente
+  if (state && state.command === "eliminarCliente") {
+    console.log(
+      "Se detectó estado de eliminar cliente, procesando respuesta..."
+    );
+    const handled = await handleEliminarClienteResponse(bot, msg);
+    if (handled) return;
+  }
 
   // Verificar si es el comando cancelar
   if (text === "/cancelar") {

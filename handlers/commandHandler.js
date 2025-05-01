@@ -2,6 +2,7 @@ import {
   COMMANDS,
   KEYBOARD_LAYOUT,
   getMainMenuMessage,
+  KEYBOARD_BUTTONS,
 } from "../constants/messages.js";
 import { getEmpresa } from "../database/empresaQueries.js";
 import {
@@ -25,7 +26,6 @@ import {
   procesarNuevoPrecio,
 } from "../commands/stock.js";
 import { handleHelp } from "./helpHandler.js";
-import { KEYBOARD_BUTTONS } from "../constants/messages.js";
 import { conversations } from "./conversationHandler.js";
 import {
   productos,
@@ -38,6 +38,14 @@ import {
   handleContactoResponse,
   handleContactoCallback,
 } from "../commands/contacto.js";
+import {
+  editarCliente,
+  handleEditarClienteResponse,
+} from "../commands/editarCliente.js";
+import {
+  devolverRetornables,
+  handleDevolverRetornablesResponse,
+} from "../commands/devolverRetornables.js";
 
 export const mostrarMenuPrincipal = async (bot, chatId, vendedor) => {
   console.log("Mostrando menú principal");
@@ -119,14 +127,53 @@ const handleCancelacion = (bot, chatId) => {
   return true;
 };
 
+// Reintroducir y modificar handleClientesCommand
+const handleClientesCommand = (bot, msg) => {
+  const chatId = msg.chat.id;
+  const options = {
+    reply_markup: {
+      inline_keyboard: [
+        // Fila 1: Nuevo y Cobros
+        [
+          {
+            text: KEYBOARD_BUTTONS.NUEVO_CLIENTE,
+            callback_data: "clientes_nuevo",
+          },
+          {
+            text: KEYBOARD_BUTTONS.COBROS,
+            callback_data: "clientes_cobros",
+          },
+        ],
+        // Fila 2: Editar y Eliminar
+        [
+          {
+            text: KEYBOARD_BUTTONS.EDITAR_CLIENTE,
+            callback_data: "clientes_editar",
+          },
+          {
+            text: KEYBOARD_BUTTONS.ELIMINAR_CLIENTE,
+            callback_data: "clientes_eliminar",
+          },
+        ],
+        // No incluir Devolver Retornables aquí
+      ],
+    },
+  };
+  bot.sendMessage(
+    chatId,
+    "Selecciona una opción de gestión de clientes:",
+    options
+  );
+};
+
 const commandHandlers = {
   [COMMANDS.START]: (bot, msg) =>
     mostrarMenuPrincipal(bot, msg.chat.id, msg.vendedor),
   [COMMANDS.MENU]: (bot, msg) =>
     mostrarMenuPrincipal(bot, msg.chat.id, msg.vendedor),
   [COMMANDS.AYUDA]: (bot, msg) => handleHelp(bot, msg.chat.id, "general"),
-  [COMMANDS.CREAR_CLIENTE]: (bot, msg) => crearCliente(bot, msg),
-  [COMMANDS.COBROS]: (bot, msg) => cobros(bot, msg),
+  [COMMANDS.CLIENTES]: handleClientesCommand,
+  [COMMANDS.DEVOLVER_RETORNABLES]: (bot, msg) => devolverRetornables(bot, msg),
   [COMMANDS.CARGAR_PEDIDO]: (bot, msg) => cargarPedido(bot, msg),
   [COMMANDS.LISTAR_PEDIDOS]: (bot, msg) => listarPedidos(bot, msg),
   [COMMANDS.RESUMEN]: (bot, msg) => resumenPedidos(bot, msg),
@@ -139,12 +186,12 @@ const commandHandlers = {
   },
 };
 
-// Agregar este mapeo de botones a comandos
+// Actualizar mapeo de botones a comandos
 const BUTTON_TO_COMMAND = {
-  [KEYBOARD_BUTTONS.COBROS]: COMMANDS.COBROS,
+  [KEYBOARD_BUTTONS.CLIENTES]: COMMANDS.CLIENTES,
+  [KEYBOARD_BUTTONS.DEVOLVER_RETORNABLES]: COMMANDS.DEVOLVER_RETORNABLES,
   [KEYBOARD_BUTTONS.CARGAR_PEDIDO]: COMMANDS.CARGAR_PEDIDO,
   [KEYBOARD_BUTTONS.VER_PEDIDOS]: COMMANDS.LISTAR_PEDIDOS,
-  [KEYBOARD_BUTTONS.NUEVO_CLIENTE]: COMMANDS.CREAR_CLIENTE,
   [KEYBOARD_BUTTONS.RESUMEN]: COMMANDS.RESUMEN,
   [KEYBOARD_BUTTONS.GESTION_PRODUCTOS]: COMMANDS.GESTION_PRODUCTOS,
   [KEYBOARD_BUTTONS.CONTACTO]: COMMANDS.CONTACTO,

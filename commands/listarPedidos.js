@@ -19,6 +19,7 @@ import {
   endConversation,
   updateConversationState,
 } from "../handlers/conversationHandler.js";
+import { modificarSaldoRetornables } from "../database/clienteQueries.js";
 
 export const listarPedidos = async (bot, msg) => {
   const chatId = msg.chat.id;
@@ -613,124 +614,6 @@ const obtenerSaldoRetornablesCliente = async (clienteId) => {
   });
 };
 
-// Actualizar saldo de retornables del cliente
-const actualizarSaldoRetornables = async (
-  clienteId,
-  nuevosRetornables,
-  retornadosAhora
-) => {
-  console.log("Actualizando saldo de retornables:", {
-    clienteId,
-    nuevosRetornables,
-    retornadosAhora,
-  });
-
-  return new Promise((resolve, reject) => {
-    // Usamos IFNULL para manejar el caso donde retornables es NULL
-    const query = `
-      UPDATE clientes 
-      SET retornables = IFNULL(retornables, 0) + ? - ? 
-      WHERE codigo = ?
-    `;
-
-    connection.query(
-      query,
-      [nuevosRetornables, retornadosAhora, clienteId],
-      (err, result) => {
-        if (err) {
-          console.error("Error al actualizar saldo de retornables:", err);
-          reject(err);
-          return;
-        }
-
-        // Verificar si la actualización afectó alguna fila
-        if (result.affectedRows === 0) {
-          console.error(
-            "No se actualizó ningún registro. Cliente no encontrado:",
-            clienteId
-          );
-          reject(new Error("Cliente no encontrado"));
-          return;
-        }
-
-        // Consultar el nuevo valor para asegurarnos de que se actualizó correctamente
-        connection.query(
-          "SELECT retornables FROM clientes WHERE codigo = ?",
-          [clienteId],
-          (err, results) => {
-            if (err) {
-              console.error("Error al verificar actualización:", err);
-              // Aún así resolvemos porque la actualización puede haber sido exitosa
-              resolve(result);
-              return;
-            }
-
-            if (results.length > 0) {
-              console.log(
-                `Saldo de retornables actualizado a: ${results[0].retornables}`
-              );
-            }
-
-            resolve(result);
-          }
-        );
-      }
-    );
-  });
-};
-
-// Solicitar cantidad de retornables devueltos
-const solicitarRetornablesDevueltos = async (
-  bot,
-  chatId,
-  pedidoId,
-  clienteData,
-  infoRetornables
-) => {
-  const { cliente, saldoRetornables } = clienteData;
-  const { totalRetornables } = infoRetornables;
-
-  // Calcular nuevo saldo si no devuelve ninguno
-  const nuevoSaldo = saldoRetornables + totalRetornables;
-
-  // Iniciar una conversación para gestionar retornables
-  startConversation(chatId, "retornables");
-
-  // Guardar datos importantes en el estado de la conversación
-  const state = getConversationState(chatId);
-  state.data = {
-    pedidoId,
-    cliente,
-    saldoRetornables,
-    totalRetornables,
-    nuevoSaldo,
-  };
-  updateConversationState(chatId, state);
-
-  const mensaje = `
-🧾 *Envases Retornables*
-
-El pedido contiene ${totalRetornables} envases retornables.
-El cliente ${cliente.nombre} ${cliente.apellido} tiene un saldo de ${saldoRetornables} retornables.
-
-👉 *Si no devuelve ninguno, deberá ${nuevoSaldo} retornables.*
-
-¿Cuántos envases retornables devolvió el cliente?
-*(Envía un número, o 0 si no devolvió ninguno)*
-`;
-
-  // Enviar mensaje sin esperar respuesta directa
-  await bot.sendMessage(chatId, mensaje, { parse_mode: "Markdown" });
-
-  // Retornar una promesa que se resolverá más tarde cuando
-  // el usuario responda a través del handleRetornablesResponse
-  return new Promise((resolve) => {
-    // Guardar la función resolve en el estado para usarla después
-    state.resolve = resolve;
-    updateConversationState(chatId, state);
-  });
-};
-
 // Manejador de respuestas para retornables
 export const handleRetornablesResponse = async (bot, msg) => {
   const chatId = msg.chat.id;
@@ -755,11 +638,18 @@ export const handleRetornablesResponse = async (bot, msg) => {
     return true; // Indicar que se manejó la respuesta aunque sea inválida
   }
 
-  // Extraer datos del estado
-  const { cliente, saldoRetornables, totalRetornables, resolve } = state.data;
+  // Extraer datos del estado (asegurarse de que codigoEmpresa esté aquí)
+  const {
+    cliente,
+    saldoRetornables,
+    totalRetornables,
+    resolve,
+    codigoEmpresa,
+  } = state.data;
 
-  // Calcular saldo final
+  // Calcular saldo final (solo para mostrar)
   const saldoFinal = saldoRetornables + totalRetornables - cantidadDevuelta;
+  const cambioNeto = totalRetornables - cantidadDevuelta; // Positivo si debe más, negativo si devolvió más
 
   // Confirmar la operación
   const mensajeConfirmacion = `
@@ -775,24 +665,33 @@ Saldo anterior del cliente: ${saldoRetornables}
     parse_mode: "Markdown",
   });
 
-  // Actualizar el saldo en la base de datos
+  // Actualizar el saldo en la base de datos usando la función centralizada
   try {
-    await actualizarSaldoRetornables(
+    // Pasar el cambio neto (nuevos - devueltos)
+    await modificarSaldoRetornables(
       cliente.id,
-      totalRetornables,
-      cantidadDevuelta
+      cambioNeto,
+      codigoEmpresa // <-- Pasar codigoEmpresa
     );
-    console.log("Saldo de retornables actualizado correctamente");
+    console.log(
+      "Saldo de retornables actualizado correctamente via modificarSaldoRetornables"
+    );
   } catch (error) {
-    console.error("Error al actualizar saldo de retornables:", error);
-    bot.sendMessage(chatId, "❌ Error al actualizar saldo de retornables.");
+    console.error(
+      "Error al actualizar saldo de retornables via modificarSaldoRetornables:",
+      error
+    );
+    bot.sendMessage(
+      chatId,
+      `❌ Error al actualizar saldo de retornables: ${error.message}`
+    );
   }
 
   // Resolver la promesa para continuar con el flujo
   if (resolve) {
     resolve({
       cantidadDevuelta,
-      saldoFinal,
+      saldoFinal, // Podríamos devolver el cambio neto si fuera útil
     });
   }
 
@@ -847,8 +746,62 @@ const obtenerDatosCliente = async (pedidoId) => {
   });
 };
 
+// Solicitar cantidad de retornables devueltos
+const solicitarRetornablesDevueltos = async (
+  bot,
+  chatId,
+  pedidoId,
+  clienteData,
+  infoRetornables,
+  codigoEmpresa
+) => {
+  const { cliente, saldoRetornables } = clienteData;
+  const { totalRetornables } = infoRetornables;
+
+  // Calcular nuevo saldo si no devuelve ninguno
+  const nuevoSaldo = saldoRetornables + totalRetornables;
+
+  // Iniciar una conversación para gestionar retornables
+  startConversation(chatId, "retornables");
+
+  // Guardar datos importantes en el estado de la conversación
+  const state = getConversationState(chatId);
+  state.data = {
+    pedidoId,
+    cliente,
+    saldoRetornables,
+    totalRetornables,
+    nuevoSaldo,
+    codigoEmpresa,
+  };
+  updateConversationState(chatId, state);
+
+  const mensaje = `
+🧾 *Envases Retornables*
+
+El pedido contiene ${totalRetornables} envases retornables.
+El cliente ${cliente.nombre} ${cliente.apellido} tiene un saldo de ${saldoRetornables} retornables.
+
+👉 *Si no devuelve ninguno, deberá ${nuevoSaldo} retornables.*
+
+¿Cuántos envases retornables devolvió el cliente?
+*(Envía un número, o 0 si no devolvió ninguno)*
+`;
+
+  // Enviar mensaje sin esperar respuesta directa
+  await bot.sendMessage(chatId, mensaje, { parse_mode: "Markdown" });
+
+  // Retornar una promesa que se resolverá más tarde cuando
+  // el usuario responda a través del handleRetornablesResponse
+  return new Promise((resolve) => {
+    // Guardar la función resolve en el estado para usarla después
+    state.resolve = resolve;
+    updateConversationState(chatId, state);
+  });
+};
+
 // Proceso completo de gestión de retornables
-const gestionarRetornables = async (bot, chatId, pedidoId) => {
+const gestionarRetornables = async (bot, chatId, pedidoId, codigoEmpresa) => {
   try {
     console.log("Iniciando gestión de retornables para pedido:", pedidoId);
 
@@ -874,53 +827,25 @@ const gestionarRetornables = async (bot, chatId, pedidoId) => {
     });
 
     // 3. Solicitar al usuario cuántos retornables devolvió el cliente
-    // y esperar la respuesta (gestionada por handleRetornablesResponse)
     console.log("Solicitando información de retornables devueltos...");
-    const respuestaRetornables = await solicitarRetornablesDevueltos(
+    await solicitarRetornablesDevueltos(
       bot,
       chatId,
       pedidoId,
       clienteData,
-      infoRetornables
+      infoRetornables,
+      codigoEmpresa
     );
 
-    // Esta parte solo se ejecuta si el usuario no usó handleRetornablesResponse
-    // normalmente ese handler actualiza el saldo directamente
-    if (
-      respuestaRetornables &&
-      respuestaRetornables.cantidadDevuelta !== undefined
-    ) {
-      console.log(
-        "Procesando respuesta manual de retornables:",
-        respuestaRetornables
-      );
+    // La actualización ahora la hace directamente handleRetornablesResponse
+    // usando modificarSaldoRetornables. No necesitamos hacer nada más aquí.
 
-      // 4. Actualizar el saldo de retornables del cliente
-      try {
-        await actualizarSaldoRetornables(
-          clienteData.cliente.id,
-          infoRetornables.totalRetornables,
-          respuestaRetornables.cantidadDevuelta
-        );
-        console.log("Saldo de retornables actualizado manualmente con éxito");
-      } catch (error) {
-        console.error(
-          "Error al actualizar saldo de retornables manualmente:",
-          error
-        );
-        bot.sendMessage(
-          chatId,
-          "⚠️ Advertencia: No se pudo actualizar el saldo de retornables. Por favor, verifique manualmente."
-        );
-      }
-    }
-
-    console.log("Proceso de retornables completado exitosamente");
+    console.log("Proceso de solicitud de retornables completado");
   } catch (error) {
     console.error("Error en el proceso de gestión de retornables:", error);
     bot.sendMessage(
       chatId,
-      "❌ Error al procesar retornables. Continuando con la entrega."
+      `❌ Error al procesar retornables: ${error.message}. Continuando con la entrega.`
     );
   }
 };
@@ -928,17 +853,12 @@ const gestionarRetornables = async (bot, chatId, pedidoId) => {
 export const handlePedidoCallback = async (bot, callbackQuery) => {
   const chatId = callbackQuery.message.chat.id;
   const [action, ...params] = callbackQuery.data.split("_");
+  const codigoEmpresa = callbackQuery.message.vendedor.codigoEmpresa;
 
   // Manejar el listado por zonas
   if (action === "listarPedidosZona") {
     const zona = params.join("_"); // Unir todos los parámetros en caso de que la zona tenga guiones bajos
     console.log("Zona seleccionada para filtrar:", zona);
-    const empresa = callbackQuery.message.vendedor.codigoEmpresa;
-
-    // Obtener configuración de la empresa
-    const empresaConfig = await getEmpresa(empresa);
-    const usaEntregaProgramada = empresaConfig?.usaEntregaProgramada === 1;
-    const usaRepartoPorZona = empresaConfig?.usaRepartoPorZona === 1;
 
     // Eliminar el mensaje de selección de zona
     try {
@@ -948,14 +868,7 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
     }
 
     // Mostrar pedidos filtrados por la zona seleccionada
-    mostrarPedidosFiltrados(
-      bot,
-      chatId,
-      empresa,
-      zona,
-      usaEntregaProgramada,
-      usaRepartoPorZona
-    );
+    mostrarPedidosFiltrados(bot, chatId, codigoEmpresa, zona, true, true);
 
     // Responder al callback
     await bot.answerCallbackQuery(callbackQuery.id);
@@ -980,27 +893,36 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
       WHERE codigo = ? AND codigoEmpresa = ?
     `;
 
-    const empresa = callbackQuery.message.vendedor.codigoEmpresa;
-    connection.query(checkQuery, [pedidoId, empresa], async (err, results) => {
-      if (err) {
-        console.error("Error al verificar estado del pedido:", err);
-        bot.sendMessage(chatId, "Error al verificar el estado del pedido.");
-        return;
+    connection.query(
+      checkQuery,
+      [pedidoId, codigoEmpresa],
+      async (err, results) => {
+        if (err) {
+          console.error("Error al verificar estado del pedido:", err);
+          bot.sendMessage(chatId, "Error al verificar el estado del pedido.");
+          return;
+        }
+
+        if (results.length === 0 || results[0].FechaEntrega !== null) {
+          bot.sendMessage(chatId, "❌ Este pedido ya ha sido entregado.");
+          return;
+        }
+
+        // Guardamos el messageId del pedido original
+        const pedidoMessageId = callbackQuery.message.message_id;
+        console.log("empresa:", codigoEmpresa);
+        mostrarOpcionesPago(
+          bot,
+          chatId,
+          pedidoId,
+          pedidoMessageId,
+          codigoEmpresa
+        );
+
+        // Respondemos al callback para quitar el "loading" del botón
+        await bot.answerCallbackQuery(callbackQuery.id);
       }
-
-      if (results.length === 0 || results[0].FechaEntrega !== null) {
-        bot.sendMessage(chatId, "❌ Este pedido ya ha sido entregado.");
-        return;
-      }
-
-      // Guardamos el messageId del pedido original
-      const pedidoMessageId = callbackQuery.message.message_id;
-      console.log("empresa:", empresa);
-      mostrarOpcionesPago(bot, chatId, pedidoId, pedidoMessageId, empresa);
-
-      // Respondemos al callback para quitar el "loading" del botón
-      await bot.answerCallbackQuery(callbackQuery.id);
-    });
+    );
   } else if (action === "pago") {
     console.log("Procesando pago:", params);
     const [pedidoId, tipoPagoId, aplicaSaldo] = params;
@@ -1029,7 +951,7 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
 
       // Procesar retornables antes de finalizar la entrega
       console.log("Iniciando gestión de retornables...");
-      await gestionarRetornables(bot, chatId, pedidoId);
+      await gestionarRetornables(bot, chatId, pedidoId, codigoEmpresa);
       console.log("Gestión de retornables completada");
 
       // Respondemos al callback
@@ -1105,59 +1027,61 @@ export const handlePedidoCallback = async (bot, callbackQuery) => {
       WHERE codigo = ? AND codigoEmpresa = ?
     `;
 
-    const empresa = callbackQuery.message.vendedor.codigoEmpresa;
+    connection.query(
+      checkQuery,
+      [pedidoId, codigoEmpresa],
+      async (err, results) => {
+        if (err) {
+          console.error("Error al verificar estado del pedido:", err);
+          bot.sendMessage(chatId, "Error al verificar el estado del pedido.");
+          return;
+        }
 
-    connection.query(checkQuery, [pedidoId, empresa], async (err, results) => {
-      if (err) {
-        console.error("Error al verificar estado del pedido:", err);
-        bot.sendMessage(chatId, "Error al verificar el estado del pedido.");
-        return;
-      }
+        if (results.length === 0) {
+          bot.sendMessage(chatId, "❌ Este pedido no existe.");
+          return;
+        }
 
-      if (results.length === 0) {
-        bot.sendMessage(chatId, "❌ Este pedido no existe.");
-        return;
-      }
+        if (results[0].FechaEntrega !== null) {
+          bot.sendMessage(
+            chatId,
+            "❌ Este pedido ya ha sido entregado y no puede anularse."
+          );
+          return;
+        }
 
-      if (results[0].FechaEntrega !== null) {
+        if (results[0].Estado === "ANULADO") {
+          bot.sendMessage(chatId, "❌ Este pedido ya ha sido anulado.");
+          return;
+        }
+
+        // Mostrar mensaje de confirmación
+        const options = {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "✅ Sí, anular pedido",
+                  callback_data: `confirmarAnular_${pedidoId}`,
+                },
+                {
+                  text: "❌ No, cancelar",
+                  callback_data: `cancelarAnular_${pedidoId}`,
+                },
+              ],
+            ],
+          },
+        };
+
         bot.sendMessage(
           chatId,
-          "❌ Este pedido ya ha sido entregado y no puede anularse."
+          `¿Estás seguro de que deseas anular el pedido #${pedidoId}? Esta acción no se puede deshacer.`,
+          options
         );
-        return;
+
+        await bot.answerCallbackQuery(callbackQuery.id);
       }
-
-      if (results[0].Estado === "ANULADO") {
-        bot.sendMessage(chatId, "❌ Este pedido ya ha sido anulado.");
-        return;
-      }
-
-      // Mostrar mensaje de confirmación
-      const options = {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: "✅ Sí, anular pedido",
-                callback_data: `confirmarAnular_${pedidoId}`,
-              },
-              {
-                text: "❌ No, cancelar",
-                callback_data: `cancelarAnular_${pedidoId}`,
-              },
-            ],
-          ],
-        },
-      };
-
-      bot.sendMessage(
-        chatId,
-        `¿Estás seguro de que deseas anular el pedido #${pedidoId}? Esta acción no se puede deshacer.`,
-        options
-      );
-
-      await bot.answerCallbackQuery(callbackQuery.id);
-    });
+    );
   } else if (action === "confirmarAnular") {
     const pedidoId = params[0];
 
