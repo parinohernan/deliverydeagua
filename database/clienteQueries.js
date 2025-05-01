@@ -30,7 +30,7 @@ export const buscarClientesPorNombre = async (busqueda, empresaCodigo) => {
           c.direccion,
           c.telefono,
           c.retornables
-          HAVING saldo > 0
+          HAVING saldo > 0 OR retornables > 0
           ORDER BY 
           c.apellido, 
           c.nombre
@@ -57,7 +57,7 @@ export const buscarClientesPorNombre = async (busqueda, empresaCodigo) => {
           c.direccion,
           c.telefono,
           c.retornables
-        HAVING saldo > 0
+        HAVING saldo > 0 OR retornables > 0
         ORDER BY 
           c.apellido, 
           c.nombre

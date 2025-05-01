@@ -1,15 +1,16 @@
 {
-  "name": "telegram-bot",
-  "version": "1.0.0",
-  "description": "",
+  "name": "janus-bot",
+  "version": "1.1.0",
+  "description": "Bot de Telegram para la gestión de pedidos y stock",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "build": "if not exist dist mkdir dist && copy index.js dist\\ && xcopy src\\ dist\\src\\ /E /I && if exist config xcopy config\\ dist\\config\\ /E /I"
   },
   "keywords": [],
-  "author": "",
+  "author": "Hernan Parino",
   "license": "ISC",
   "dependencies": {
     "mysql2": "^3.12.0",
